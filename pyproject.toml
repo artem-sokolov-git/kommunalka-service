@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.0",
+    "fastapi[standard]>=0.142.2",
     "sqlalchemy>=2.1.1",
 ]
 
@@ -18,6 +19,7 @@ module-name = "kommunalka"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
@@ -49,6 +51,9 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 
 [tool.ty.environment]
 python-version = "3.13"
+
+[tool.fastapi]
+entrypoint = "kommunalka.api.app:app"
 
 [tool.alembic]
 script_location = "kommunalka.infrastructure.db:migrations"
