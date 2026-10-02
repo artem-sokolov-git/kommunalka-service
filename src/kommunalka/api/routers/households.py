@@ -1,11 +1,15 @@
+from collections.abc import Iterable
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Path, status
 
 from kommunalka.api.dependencies import UowDep
 from kommunalka.api.schemas import BillIn, BillOut, HouseholdIn, HouseholdOut, MeterIn, MeterOut
 from kommunalka.application import queries
+from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases import install_meter, issue_bill, register_household
+from kommunalka.domain import Bill
 
 router = APIRouter(prefix="/households", tags=["households"])
 
@@ -53,9 +57,26 @@ def create_bill(household_id: UUID, body: BillIn, uow: UowDep) -> BillOut:
         month=body.month,
         fixed_amounts=body.fixed_amounts,
     )
-    return BillOut.from_bill(bill)
+    [bill_out] = _bills_out(uow, [bill])
+    return bill_out
 
 
 @router.get("/{household_id}/bills")
 def list_bills(household_id: UUID, uow: UowDep) -> list[BillOut]:
-    return [BillOut.from_bill(b) for b in queries.list_bills(uow, household_id)]
+    return _bills_out(uow, queries.list_bills(uow, household_id))
+
+
+@router.get("/{household_id}/bills/{year}/{month}")
+def get_bill(
+    household_id: UUID,
+    year: int,
+    month: Annotated[int, Path(ge=1, le=12)],
+    uow: UowDep,
+) -> BillOut:
+    [bill_out] = _bills_out(uow, [queries.get_bill(uow, household_id, year, month)])
+    return bill_out
+
+
+def _bills_out(uow: UnitOfWork, bills: Iterable[Bill]) -> list[BillOut]:
+    service_names = {service.id: service.name for service in queries.list_services(uow)}
+    return [BillOut.from_bill(bill, service_names) for bill in bills]

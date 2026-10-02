@@ -68,16 +68,23 @@ def test_full_billing_flow(
     assert bill["period_end"] == "2026-09-30"
     assert bill["total"] == "45.45"
     assert sorted(bill["lines"], key=lambda line: line["kind"]) == [
-        {"kind": "fixed", "service_id": transport["id"], "amount": "12.30"},
+        {
+            "kind": "fixed",
+            "service_id": transport["id"],
+            "service_name": "Gas transportation",
+            "amount": "12.30",
+        },
         {
             "kind": "metered",
             "service_id": gas["id"],
+            "service_name": "Gas",
             "quantity": "42.5",
             "price": "0.78",
             "amount": "33.15",
         },
     ]
     assert client.get(f"/households/{household['id']}/bills").json() == [bill]
+    assert client.get(f"/households/{household['id']}/bills/2026/9").json() == bill
 
 
 def test_reads_resources(
@@ -155,3 +162,21 @@ def test_missing_reading_for_bill_is_422(client: TestClient, household: dict[str
 
 def test_rejects_unknown_fields(client: TestClient) -> None:
     post(client, "/households", {"name": "Home", "address": "A", "extra": 1}, expected=422)
+
+
+def test_missing_bill_is_404(client: TestClient, household: dict[str, Any]) -> None:
+    response = client.get(f"/households/{household['id']}/bills/2026/9")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Bill for 2026-09 not found"}
+
+
+@pytest.mark.parametrize("month", [0, 13])
+def test_rejects_invalid_month(client: TestClient, household: dict[str, Any], month: int) -> None:
+    assert client.get(f"/households/{household['id']}/bills/2026/{month}").status_code == 422
+    post(
+        client,
+        f"/households/{household['id']}/bills",
+        {"year": 2026, "month": month},
+        expected=422,
+    )

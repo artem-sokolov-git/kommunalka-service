@@ -1,7 +1,9 @@
 """Read-only use cases."""
 
+from datetime import date
 from uuid import UUID
 
+from kommunalka.application.exceptions import NotFoundError
 from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases._common import require
 from kommunalka.domain import Bill, Household, Meter, Reading, Service, TariffPeriod
@@ -44,3 +46,11 @@ def list_bills(uow: UnitOfWork, household_id: UUID) -> list[Bill]:
     with uow:
         require(uow.households.get(household_id), "Household", household_id)
         return uow.bills.list_by_household(household_id)
+
+
+def get_bill(uow: UnitOfWork, household_id: UUID, year: int, month: int) -> Bill:
+    period_start = date(year, month, 1)
+    for bill in list_bills(uow, household_id):
+        if bill.period_start == period_start:
+            return bill
+    raise NotFoundError(f"Bill for {period_start:%Y-%m} not found")
