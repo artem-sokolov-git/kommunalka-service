@@ -190,7 +190,9 @@ class SqlBillRepository:
             .order_by(BillRow.period_start)
         ).all()
         line_rows = self._connection.execute(
-            select(BillLineRow).where(BillLineRow.bill_id.in_([row.id for row in bill_rows]))
+            select(BillLineRow)
+            .where(BillLineRow.bill_id.in_([row.id for row in bill_rows]))
+            .order_by(BillLineRow.position)
         )
         lines: defaultdict[UUID, list[BillLine]] = defaultdict(list)
         for line_row in line_rows:
@@ -221,7 +223,11 @@ class SqlBillRepository:
         self._connection.execute(delete(BillLineRow).where(BillLineRow.bill_id == bill.id))
         if bill.lines:
             self._connection.execute(
-                insert(BillLineRow), [_bill_line_values(bill.id, line) for line in bill.lines]
+                insert(BillLineRow),
+                [
+                    _bill_line_values(bill.id, position, line)
+                    for position, line in enumerate(bill.lines)
+                ],
             )
 
 
@@ -282,10 +288,11 @@ def _to_bill_line(row: Row[Any]) -> BillLine:
     return MeteredBillLine(service_id=row.service_id, quantity=row.quantity, price=row.price)
 
 
-def _bill_line_values(bill_id: UUID, line: BillLine) -> dict[str, Any]:
+def _bill_line_values(bill_id: UUID, position: int, line: BillLine) -> dict[str, Any]:
     values: dict[str, Any] = {
         "bill_id": bill_id,
         "service_id": line.service_id,
+        "position": position,
         "quantity": None,
         "price": None,
         "amount": None,

@@ -113,6 +113,8 @@ class BillLineRow(Base):
         ForeignKey("bills.id", ondelete="CASCADE"), primary_key=True
     )
     service_id: Mapped[UUID] = mapped_column(ForeignKey("services.id"), primary_key=True)
+    # Order of the line in Bill.lines.
+    position: Mapped[int]
     quantity: Mapped[Decimal | None]
     price: Mapped[Decimal | None]
     amount: Mapped[Decimal | None]
