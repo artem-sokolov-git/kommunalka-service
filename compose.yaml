@@ -1,0 +1,32 @@
+x-app: &app
+  build: .
+  image: kommunalka-service
+  volumes:
+    - data:/data
+
+services:
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    <<: *app
+    ports:
+      - "${KOMMUNALKA_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json')
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  data:
