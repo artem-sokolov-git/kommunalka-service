@@ -10,23 +10,26 @@ from kommunalka.domain.value_objects import DateRange
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TariffPeriod:
-    """Price per unit of a metered service."""
+    """Service price: per unit for metered services, per month for unmetered ones.
+
+    The period is open-ended if `valid_to` is None.
+    """
 
     service_id: UUID
     price: Decimal
     valid_from: date
-    valid_to: date
+    valid_to: date | None = None
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
         if self.price < 0:
             raise DomainError("Tariff price must not be negative")
-        if self.valid_to < self.valid_from:
+        if self.valid_to is not None and self.valid_to < self.valid_from:
             raise DomainError("Tariff period valid_to must not be earlier than valid_from")
 
     @property
     def period(self) -> DateRange:
-        return DateRange(self.valid_from, self.valid_to)
+        return DateRange(self.valid_from, self.valid_to or date.max)
 
     def covers(self, billing_period: DateRange) -> bool:
         """Return True if the tariff is valid for the whole billing period."""

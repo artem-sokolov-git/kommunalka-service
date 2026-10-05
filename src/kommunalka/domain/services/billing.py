@@ -26,6 +26,7 @@ def calculate_bill(
     Every household meter in service during the month must have a reading for it.
     The first reading of a meter is a baseline and adds no consumption.
     Consumption of several meters of one service is summed into one line.
+    Unmetered services are charged their monthly tariff, unless `fixed_amounts` sets the amount.
     """
     services_by_id = {service.id: service for service in services}
     readings = list(readings)
@@ -53,6 +54,12 @@ def calculate_bill(
         if _get_service(services_by_id, service_id).is_metered:
             raise DomainError("Ready amount is allowed only for unmetered services")
         lines.append(FixedBillLine(service_id=service_id, amount=amount))
+    for service in services_by_id.values():
+        if service.is_metered or service.id in fixed_amounts:
+            continue
+        monthly = _find_tariff_or_none(service.id, period, tariff_periods)
+        if monthly is not None:
+            lines.append(FixedBillLine(service_id=service.id, amount=monthly.price))
 
     return Bill(
         household_id=household_id,
@@ -93,7 +100,15 @@ def _consumption(meter: Meter, period: DateRange, readings: list[Reading]) -> De
 def _find_tariff(
     service_id: UUID, period: DateRange, tariff_periods: list[TariffPeriod]
 ) -> TariffPeriod:
-    for tariff_period in tariff_periods:
-        if tariff_period.service_id == service_id and tariff_period.covers(period):
-            return tariff_period
-    raise MissingTariffError(f"No tariff for service {service_id} in {period.start:%Y-%m}")
+    tariff_period = _find_tariff_or_none(service_id, period, tariff_periods)
+    if tariff_period is None:
+        raise MissingTariffError(f"No tariff for service {service_id} in {period.start:%Y-%m}")
+    return tariff_period
+
+
+def _find_tariff_or_none(
+    service_id: UUID, period: DateRange, tariff_periods: list[TariffPeriod]
+) -> TariffPeriod | None:
+    return next(
+        (t for t in tariff_periods if t.service_id == service_id and t.covers(period)), None
+    )

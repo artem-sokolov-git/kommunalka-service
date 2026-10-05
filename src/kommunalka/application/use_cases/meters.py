@@ -15,6 +15,7 @@ def install_meter(
     serial_number: str,
     label: str,
     installed_on: date,
+    model: str | None = None,
 ) -> Meter:
     meter = Meter(
         household_id=household_id,
@@ -22,6 +23,7 @@ def install_meter(
         serial_number=serial_number,
         label=label,
         installed_on=installed_on,
+        model=model,
     )
     with uow:
         require(uow.households.get(household_id), "Household", household_id)

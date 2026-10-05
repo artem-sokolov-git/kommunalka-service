@@ -15,6 +15,7 @@ class Meter:
     serial_number: str
     label: str
     installed_on: date
+    model: str | None = None
     removed_on: date | None = None
     id: UUID = field(default_factory=uuid4)
 

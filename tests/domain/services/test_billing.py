@@ -184,3 +184,25 @@ def test_rejects_meter_of_unmetered_service() -> None:
 def test_rejects_unknown_service() -> None:
     with pytest.raises(DomainError):
         calculate([], [], fixed_amounts={uuid4(): Decimal(1)})
+
+
+transport_tariff = TariffPeriod(
+    service_id=transport.id, price=Decimal("300.78"), valid_from=date(2025, 12, 1)
+)
+
+
+def test_charges_unmetered_service_its_monthly_tariff() -> None:
+    bill = calculate([], [], tariff_periods=[*tariffs, transport_tariff])
+
+    assert bill.lines == (FixedBillLine(service_id=transport.id, amount=Decimal("300.78")),)
+
+
+def test_ready_amount_overrides_monthly_tariff() -> None:
+    bill = calculate(
+        [],
+        [],
+        fixed_amounts={transport.id: Decimal("12.30")},
+        tariff_periods=[*tariffs, transport_tariff],
+    )
+
+    assert bill.lines == (FixedBillLine(service_id=transport.id, amount=Decimal("12.30")),)

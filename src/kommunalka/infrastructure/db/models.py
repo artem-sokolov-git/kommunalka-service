@@ -61,6 +61,7 @@ class MeterRow(Base):
     serial_number: Mapped[str] = mapped_column(unique=True)
     label: Mapped[str]
     installed_on: Mapped[date]
+    model: Mapped[str | None]
     removed_on: Mapped[date | None]
 
 
@@ -84,7 +85,7 @@ class TariffPeriodRow(Base):
     service_id: Mapped[UUID] = mapped_column(ForeignKey("services.id"))
     price: Mapped[Decimal]
     valid_from: Mapped[date]
-    valid_to: Mapped[date]
+    valid_to: Mapped[date | None]
 
 
 class BillRow(Base):

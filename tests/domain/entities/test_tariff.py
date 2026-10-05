@@ -50,3 +50,10 @@ def test_periods_of_one_service_must_not_overlap() -> None:
     )
     with pytest.raises(OverlappingTariffPeriodError):
         ensure_no_overlap(make_tariff(date(2026, 12, 31), date(2027, 12, 30)), [existing])
+
+
+def test_open_ended_tariff_covers_any_later_month() -> None:
+    tariff = TariffPeriod(service_id=SERVICE_ID, price=Decimal(1), valid_from=date(2024, 9, 1))
+
+    assert tariff.covers(DateRange.month_of(date(2099, 12, 1)))
+    assert not tariff.covers(DateRange.month_of(date(2024, 8, 1)))

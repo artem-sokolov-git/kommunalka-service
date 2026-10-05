@@ -41,6 +41,7 @@ class MeterIn(Schema):
     serial_number: str
     label: str
     installed_on: date
+    model: str | None = None
 
 
 class MeterRemovalIn(Schema):
@@ -54,6 +55,7 @@ class MeterOut(Schema):
     serial_number: str
     label: str
     installed_on: date
+    model: str | None
     removed_on: date | None
     is_active: bool
 
@@ -78,7 +80,7 @@ class ReadingOut(Schema):
 class TariffPeriodIn(Schema):
     price: Decimal
     valid_from: date
-    valid_to: date
+    valid_to: date | None = None
 
 
 class TariffPeriodOut(Schema):
@@ -86,7 +88,7 @@ class TariffPeriodOut(Schema):
     service_id: UUID
     price: Decimal
     valid_from: date
-    valid_to: date
+    valid_to: date | None
 
 
 Month = Annotated[int, Field(ge=1, le=12)]

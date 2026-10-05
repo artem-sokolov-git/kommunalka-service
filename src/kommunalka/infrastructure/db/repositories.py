@@ -109,6 +109,7 @@ class SqlMeterRepository:
                 "serial_number": meter.serial_number,
                 "label": meter.label,
                 "installed_on": meter.installed_on,
+                "model": meter.model,
                 "removed_on": meter.removed_on,
             },
         )
@@ -258,6 +259,7 @@ def _to_meter(row: Row[Any]) -> Meter:
         serial_number=row.serial_number,
         label=row.label,
         installed_on=row.installed_on,
+        model=row.model,
         removed_on=row.removed_on,
     )
 

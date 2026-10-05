@@ -39,6 +39,7 @@ def create_meter(household_id: UUID, body: MeterIn, uow: UowDep) -> MeterOut:
         serial_number=body.serial_number,
         label=body.label,
         installed_on=body.installed_on,
+        model=body.model,
     )
     return MeterOut.model_validate(meter)
 
