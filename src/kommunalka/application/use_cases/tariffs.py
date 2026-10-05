@@ -2,8 +2,8 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+from kommunalka.application._common import require
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.application.use_cases._common import require
 from kommunalka.domain import TariffPeriod, ensure_no_overlap
 
 

@@ -2,10 +2,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 
-from kommunalka.api.dependencies import UowDep
-from kommunalka.api.schemas import ServiceIn, ServiceOut, TariffPeriodIn, TariffPeriodOut
 from kommunalka.application import queries
 from kommunalka.application.use_cases import add_service, set_tariff
+from kommunalka.presentation.api.schemas import (
+    ServiceIn,
+    ServiceOut,
+    TariffPeriodIn,
+    TariffPeriodOut,
+)
+from kommunalka.presentation.dependencies import UowDep
 
 router = APIRouter(prefix="/services", tags=["services"])
 

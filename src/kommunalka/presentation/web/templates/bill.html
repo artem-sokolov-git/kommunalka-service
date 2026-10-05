@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ title }} · {{ household.name }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs no-print">
+    <a href="{{ url_for('home_page') }}">Главная</a> →
+    <a href="{{ url_for('bills_page', household_id=household.id) }}">{{ household.name }}</a> →
+    {{ title }}
+  </p>
+  <h1>{{ title }}</h1>
+  <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Услуга</th>
+        <th class="readings-col">Показания</th>
+        <th class="num">Расход</th>
+        <th class="num">Тариф</th>
+        <th class="num">Сумма</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for line in lines %}
+      <tr>
+        <td>{{ line.service }}</td>
+        <td class="readings readings-col">{{ line.readings }}</td>
+        <td class="num">{{ line.quantity }}</td>
+        <td class="num">{{ line.price }}</td>
+        <td class="num">{{ line.amount }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Итого</td>
+        <td class="readings-col"></td>
+        <td></td>
+        <td></td>
+        <td class="num">{{ total }}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <nav class="months no-print">
+    <span>{% if previous %}<a href="{{ url_for('bill_page', household_id=household.id, year=previous.year, month=previous.month) }}">← {{ previous.strftime("%m.%Y") }}</a>{% endif %}</span>
+    <span>{% if next %}<a href="{{ url_for('bill_page', household_id=household.id, year=next.year, month=next.month) }}">{{ next.strftime("%m.%Y") }} →</a>{% endif %}</span>
+  </nav>
+{% endblock %}

@@ -9,7 +9,7 @@ install: ## Install dependencies and pre-commit hooks
 	uv run pre-commit install
 
 dev: migrate ## Run the API with reload on http://localhost:8000
-	uv run granian --interface asgi --reload --reload-paths src kommunalka.api.app:app
+	uv run granian --interface asgi --reload --reload-paths src kommunalka.presentation.app:app
 
 test: ## Run tests
 	uv run pytest

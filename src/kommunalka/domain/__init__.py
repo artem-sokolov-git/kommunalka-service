@@ -1,7 +1,12 @@
 from kommunalka.domain.entities.bill import Bill, ensure_not_billed, ensure_unique_bill
 from kommunalka.domain.entities.household import Household, ensure_unique_household
 from kommunalka.domain.entities.meter import Meter, ensure_unique_meter
-from kommunalka.domain.entities.reading import Reading, ensure_unique_reading
+from kommunalka.domain.entities.reading import (
+    Reading,
+    ensure_unique_reading,
+    next_reading,
+    readings_for_month,
+)
 from kommunalka.domain.entities.service import Service
 from kommunalka.domain.entities.tariff import TariffPeriod, ensure_no_overlap
 from kommunalka.domain.exceptions import (
@@ -50,4 +55,6 @@ __all__ = [
     "ensure_unique_household",
     "ensure_unique_meter",
     "ensure_unique_reading",
+    "next_reading",
+    "readings_for_month",
 ]

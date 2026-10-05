@@ -4,12 +4,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Path, status
 
-from kommunalka.api.dependencies import UowDep
-from kommunalka.api.schemas import BillIn, BillOut, HouseholdIn, HouseholdOut, MeterIn, MeterOut
 from kommunalka.application import queries
 from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases import install_meter, issue_bill, register_household
 from kommunalka.domain import Bill
+from kommunalka.presentation.api.schemas import (
+    BillIn,
+    BillOut,
+    HouseholdIn,
+    HouseholdOut,
+    MeterIn,
+    MeterOut,
+)
+from kommunalka.presentation.dependencies import UowDep
 
 router = APIRouter(prefix="/households", tags=["households"])
 

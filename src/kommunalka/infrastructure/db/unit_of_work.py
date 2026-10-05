@@ -2,7 +2,9 @@ from types import TracebackType
 from typing import Self
 
 from sqlalchemy import Connection, Engine, RootTransaction
+from sqlalchemy.exc import IntegrityError
 
+from kommunalka.application.exceptions import ConflictError
 from kommunalka.infrastructure.db.repositories import (
     SqlBillRepository,
     SqlHouseholdRepository,
@@ -51,6 +53,9 @@ class SqlUnitOfWork:
                 self._transaction.rollback()
         finally:
             self._connection.close()
+        # Constraints catch duplicates that slipped past the checks in a race.
+        if isinstance(exc, IntegrityError):
+            raise ConflictError("Conflicts with existing data") from exc
 
     def commit(self) -> None:
         self._transaction.commit()

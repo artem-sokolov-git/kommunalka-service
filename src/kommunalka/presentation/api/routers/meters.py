@@ -2,10 +2,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 
-from kommunalka.api.dependencies import UowDep
-from kommunalka.api.schemas import MeterOut, MeterRemovalIn, ReadingIn, ReadingOut
 from kommunalka.application import queries
 from kommunalka.application.use_cases import remove_meter, submit_reading
+from kommunalka.presentation.api.schemas import MeterOut, MeterRemovalIn, ReadingIn, ReadingOut
+from kommunalka.presentation.dependencies import UowDep
 
 router = APIRouter(prefix="/meters", tags=["meters"])
 

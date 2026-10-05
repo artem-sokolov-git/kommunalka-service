@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Домохозяйства</h1>
+  <p class="subtitle">Выберите домохозяйство, чтобы посмотреть счета.</p>
+  {% if households %}
+  <div class="cards">
+    {% for item in households %}
+    <a class="card" href="{{ url_for('bills_page', household_id=item.household.id) }}">
+      <h3>{{ item.household.name }}</h3>
+      <p class="muted">{{ item.household.address }}</p>
+      <div class="last">
+        {% if item.last_bill %}
+        <span class="muted">Последний счёт: {{ item.last_bill.title }} {{ item.last_bill.year }} · всего {{ item.bill_count }}</span>
+        <span class="amount">{{ item.last_bill.total }}</span>
+        {% else %}
+        <span class="muted">Счетов пока нет</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>Домохозяйств пока нет. Добавьте их через <a href="/docs">API</a>.</p>
+  {% endif %}
+{% endblock %}

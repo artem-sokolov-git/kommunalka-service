@@ -1,9 +1,11 @@
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from uuid import UUID, uuid4
 
+from kommunalka.domain.entities.reading import Reading
 from kommunalka.domain.exceptions import DomainError, DuplicateMeterError
+from kommunalka.domain.value_objects import DateRange
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -30,6 +32,22 @@ class Meter:
     @property
     def is_active(self) -> bool:
         return self.removed_on is None
+
+    def is_in_service_on(self, day: date) -> bool:
+        return self.installed_on <= day and (self.removed_on is None or day <= self.removed_on)
+
+    def is_in_service_during(self, period: DateRange) -> bool:
+        return self.installed_on <= period.end and (
+            self.removed_on is None or self.removed_on >= period.start
+        )
+
+    def remove(self, removed_on: date, readings: Iterable[Reading]) -> "Meter":
+        """Return the meter removed on `removed_on`; none of its readings may be later."""
+        if not self.is_active:
+            raise DomainError(f"Meter {self.label!r} is already removed")
+        if any(reading.taken_on > removed_on for reading in readings):
+            raise DomainError(f"Meter {self.label!r} has readings after {removed_on}")
+        return replace(self, removed_on=removed_on)
 
 
 def ensure_unique_meter(meter: Meter, existing: Iterable[Meter]) -> None:

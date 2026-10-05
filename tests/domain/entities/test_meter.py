@@ -1,9 +1,17 @@
 from datetime import date
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
 
-from kommunalka.domain import DomainError, DuplicateMeterError, Meter, ensure_unique_meter
+from kommunalka.domain import (
+    DateRange,
+    DomainError,
+    DuplicateMeterError,
+    Meter,
+    Reading,
+    ensure_unique_meter,
+)
 
 HOUSEHOLD_ID = uuid4()
 
@@ -71,3 +79,33 @@ def test_label_is_unique_within_household() -> None:
     with pytest.raises(DuplicateMeterError):
         ensure_unique_meter(make_meter("SN-2", "Kitchen"), [existing])
     ensure_unique_meter(make_meter("SN-2", "Kitchen", household_id=uuid4()), [existing])
+
+
+def test_is_in_service_between_installation_and_removal() -> None:
+    meter = Meter(
+        household_id=HOUSEHOLD_ID,
+        service_id=uuid4(),
+        serial_number="SN-1",
+        label="Kitchen",
+        installed_on=date(2025, 1, 15),
+        removed_on=date(2026, 10, 15),
+    )
+
+    assert not meter.is_in_service_on(date(2025, 1, 14))
+    assert meter.is_in_service_on(date(2026, 10, 15))
+    assert not meter.is_in_service_on(date(2026, 10, 16))
+    assert meter.is_in_service_during(DateRange.month_of(date(2025, 1, 1)))
+    assert not meter.is_in_service_during(DateRange.month_of(date(2026, 11, 1)))
+
+
+def test_remove() -> None:
+    meter = make_meter()
+    reading = Reading(meter_id=meter.id, value=Decimal(1), taken_on=date(2026, 10, 2))
+
+    removed = meter.remove(date(2026, 10, 15), [reading])
+
+    assert removed.removed_on == date(2026, 10, 15)
+    with pytest.raises(DomainError):
+        removed.remove(date(2026, 10, 16), [])
+    with pytest.raises(DomainError):
+        meter.remove(date(2026, 10, 1), [reading])

@@ -4,8 +4,8 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
+from kommunalka.application.exceptions import ConflictError
 from kommunalka.domain import (
     Bill,
     FixedBillLine,
@@ -159,17 +159,17 @@ def test_error_rolls_back(uow: SqlUnitOfWork) -> None:
 def test_database_enforces_unique_serial_number(uow: SqlUnitOfWork) -> None:
     duplicate = replace(meter, id=uuid4(), label="Stove")
 
-    with pytest.raises(IntegrityError), uow:
+    with pytest.raises(ConflictError), uow:
         uow.meters.save(duplicate)
 
 
 @pytest.mark.usefixtures("saved")
 def test_database_enforces_one_reading_per_month(uow: SqlUnitOfWork) -> None:
-    with pytest.raises(IntegrityError), uow:
+    with pytest.raises(ConflictError), uow:
         uow.readings.save(Reading(meter_id=meter.id, value=Decimal(1), taken_on=date(2026, 10, 2)))
         uow.readings.save(Reading(meter_id=meter.id, value=Decimal(2), taken_on=date(2026, 10, 4)))
 
 
 def test_database_enforces_foreign_keys(uow: SqlUnitOfWork) -> None:
-    with pytest.raises(IntegrityError), uow:
+    with pytest.raises(ConflictError), uow:
         uow.meters.save(meter)

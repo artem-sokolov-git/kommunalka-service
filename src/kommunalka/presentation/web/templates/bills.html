@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block page_title %}Счета · {{ household.name }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs"><a href="{{ url_for('home_page') }}">Главная</a> → {{ household.name }}</p>
+  <h1>Счета</h1>
+  <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
+  {% for year in years %}
+  <h2><span>{{ year.year }}</span><span class="num">{{ year.total }}</span></h2>
+  <table>
+    <tbody>
+    {% for bill in year.bills %}
+      <tr>
+        <td><a href="{{ url_for('bill_page', household_id=household.id, year=bill.year, month=bill.month) }}">{{ bill.title | capitalize }}</a></td>
+        <td class="num">{{ bill.total }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Счетов пока нет.</p>
+  {% endfor %}
+{% endblock %}

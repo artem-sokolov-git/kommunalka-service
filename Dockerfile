@@ -43,4 +43,4 @@ VOLUME /data
 EXPOSE 8000
 
 CMD ["granian", "--interface", "asgi", "--host", "0.0.0.0", "--port", "8000", \
-     "kommunalka.api.app:app"]
+     "kommunalka.presentation.app:app"]

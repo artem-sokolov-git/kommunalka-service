@@ -4,7 +4,7 @@ from uuid import UUID
 
 from kommunalka.domain.entities.bill import Bill
 from kommunalka.domain.entities.meter import Meter
-from kommunalka.domain.entities.reading import Reading
+from kommunalka.domain.entities.reading import Reading, readings_for_month
 from kommunalka.domain.entities.service import Service
 from kommunalka.domain.entities.tariff import TariffPeriod
 from kommunalka.domain.exceptions import DomainError, MissingReadingError, MissingTariffError
@@ -34,7 +34,7 @@ def calculate_bill(
 
     consumption: dict[UUID, Decimal] = {}
     for meter in meters:
-        if meter.household_id != household_id or not _in_service_during(meter, period):
+        if meter.household_id != household_id or not meter.is_in_service_during(period):
             continue
         if not _get_service(services_by_id, meter.service_id).is_metered:
             raise DomainError(f"Meter {meter.label!r} belongs to an unmetered service")
@@ -69,12 +69,6 @@ def calculate_bill(
     )
 
 
-def _in_service_during(meter: Meter, period: DateRange) -> bool:
-    return meter.installed_on <= period.end and (
-        meter.removed_on is None or meter.removed_on >= period.start
-    )
-
-
 def _get_service(services_by_id: Mapping[UUID, Service], service_id: UUID) -> Service:
     try:
         return services_by_id[service_id]
@@ -83,13 +77,13 @@ def _get_service(services_by_id: Mapping[UUID, Service], service_id: UUID) -> Se
 
 
 def _consumption(meter: Meter, period: DateRange, readings: list[Reading]) -> Decimal:
-    meter_readings = [reading for reading in readings if reading.meter_id == meter.id]
-    current = next((r for r in meter_readings if r.billing_period == period), None)
+    previous, current = readings_for_month(
+        (reading for reading in readings if reading.meter_id == meter.id), period
+    )
     if current is None:
         raise MissingReadingError(f"Meter {meter.label!r} has no reading for {period.start:%Y-%m}")
     if current.previous_taken_on is None:
         return Decimal(0)
-    previous = next((r for r in meter_readings if r.taken_on == current.previous_taken_on), None)
     if previous is None:
         raise MissingReadingError(
             f"Meter {meter.label!r} has no reading on {current.previous_taken_on}"

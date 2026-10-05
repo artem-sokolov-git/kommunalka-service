@@ -3,14 +3,14 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+from kommunalka.application._common import require
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.application.use_cases._common import require
 from kommunalka.domain import (
-    DomainError,
     Meter,
     Reading,
     ensure_not_billed,
     ensure_unique_reading,
+    next_reading,
 )
 
 
@@ -18,22 +18,9 @@ def submit_reading(uow: UnitOfWork, *, meter_id: UUID, value: Decimal, taken_on:
     """Add a reading after the last one of the meter."""
     with uow:
         meter = require(uow.meters.get(meter_id), "Meter", meter_id)
-        if taken_on < meter.installed_on or (
-            meter.removed_on is not None and taken_on > meter.removed_on
-        ):
-            raise DomainError(f"Meter {meter.label!r} is not in service on {taken_on}")
         readings = uow.readings.list_by_meter(meter_id)
         last = max(readings, key=lambda r: r.taken_on, default=None)
-        if last is not None and taken_on <= last.taken_on:
-            raise DomainError(f"Reading must be taken after the last one on {last.taken_on}")
-        reading = Reading(
-            meter_id=meter_id,
-            value=value,
-            taken_on=taken_on,
-            previous_taken_on=last.taken_on if last is not None else None,
-        )
-        if last is not None:
-            reading.consumption_since(last)
+        reading = next_reading(meter, last, value=value, taken_on=taken_on)
         ensure_unique_reading(reading, readings)
         _ensure_not_billed(uow, meter, reading)
         uow.readings.save(reading)

@@ -8,11 +8,23 @@ from kommunalka.domain import (
     DateRange,
     DomainError,
     DuplicateReadingError,
+    Meter,
     Reading,
     ensure_unique_reading,
+    next_reading,
+    readings_for_month,
 )
 
 METER_ID = uuid4()
+METER = Meter(
+    household_id=uuid4(),
+    service_id=uuid4(),
+    serial_number="SN-1",
+    label="Kitchen",
+    installed_on=date(2025, 1, 1),
+    removed_on=date(2026, 12, 31),
+    id=METER_ID,
+)
 
 
 def make_reading(value: str, taken_on: date, previous_taken_on: date | None = None) -> Reading:
@@ -80,3 +92,39 @@ def test_one_reading_per_meter_and_month() -> None:
     ensure_unique_reading(make_reading("2", date(2026, 11, 2)), [existing])
     with pytest.raises(DuplicateReadingError):
         ensure_unique_reading(make_reading("2", date(2026, 10, 4)), [existing])
+
+
+def test_next_reading_follows_last() -> None:
+    first = next_reading(METER, None, value=Decimal(100), taken_on=date(2026, 9, 2))
+    second = next_reading(METER, first, value=Decimal(120), taken_on=date(2026, 10, 3))
+
+    assert first.previous_taken_on is None
+    assert second.previous_taken_on == first.taken_on
+    assert second.consumption_since(first) == Decimal(20)
+
+
+@pytest.mark.parametrize(
+    ("taken_on", "value"),
+    [
+        (date(2026, 9, 2), "120"),  # not after the last one
+        (date(2026, 10, 3), "99"),  # value decreased
+        (date(2027, 1, 2), "120"),  # meter already removed
+    ],
+)
+def test_next_reading_rejects(taken_on: date, value: str) -> None:
+    last = make_reading("100", date(2026, 9, 2))
+
+    with pytest.raises(DomainError):
+        next_reading(METER, last, value=Decimal(value), taken_on=taken_on)
+
+
+def test_readings_for_month() -> None:
+    august = make_reading("100", date(2026, 8, 3))
+    september = make_reading("120", date(2026, 9, 2), previous_taken_on=august.taken_on)
+
+    assert readings_for_month([august, september], september.billing_period) == (
+        august,
+        september,
+    )
+    assert readings_for_month([august, september], august.billing_period) == (None, august)
+    assert readings_for_month([august], september.billing_period) == (None, None)

@@ -2,9 +2,9 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from kommunalka.api.dependencies import UowDep
-from kommunalka.api.schemas import ReadingCorrectionIn, ReadingOut
 from kommunalka.application.use_cases import correct_reading
+from kommunalka.presentation.api.schemas import ReadingCorrectionIn, ReadingOut
+from kommunalka.presentation.dependencies import UowDep
 
 router = APIRouter(prefix="/readings", tags=["readings"])
 

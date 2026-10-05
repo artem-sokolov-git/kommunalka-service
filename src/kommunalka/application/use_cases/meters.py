@@ -1,9 +1,8 @@
-from dataclasses import replace
 from datetime import date
 from uuid import UUID
 
+from kommunalka.application._common import require
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.application.use_cases._common import require
 from kommunalka.domain import DomainError, Meter, ensure_unique_meter
 
 
@@ -39,11 +38,7 @@ def install_meter(
 def remove_meter(uow: UnitOfWork, *, meter_id: UUID, removed_on: date) -> Meter:
     with uow:
         meter = require(uow.meters.get(meter_id), "Meter", meter_id)
-        if not meter.is_active:
-            raise DomainError(f"Meter {meter.label!r} is already removed")
-        if any(r.taken_on > removed_on for r in uow.readings.list_by_meter(meter_id)):
-            raise DomainError(f"Meter {meter.label!r} has readings after {removed_on}")
-        removed = replace(meter, removed_on=removed_on)
+        removed = meter.remove(removed_on, uow.readings.list_by_meter(meter_id))
         uow.meters.save(removed)
         uow.commit()
     return removed
