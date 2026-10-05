@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install dev test lint fmt check migrate migration up down logs
+.PHONY: help install dev test lint fmt check migrate migration up down logs backup
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -40,3 +40,10 @@ down: ## Stop the stack (the database in ./data is kept)
 
 logs: ## Follow API logs
 	docker compose logs -f api
+
+backup: ## Back up data/kommunalka.db into backups/ (safe while running)
+	@test -f data/kommunalka.db || (echo "data/kommunalka.db not found" && exit 1)
+	@mkdir -p backups
+	@file=backups/kommunalka-$$(date +%Y%m%d-%H%M%S).db \
+		&& sqlite3 data/kommunalka.db ".backup $$file" \
+		&& echo "$$file: $$(sqlite3 $$file 'PRAGMA integrity_check')"

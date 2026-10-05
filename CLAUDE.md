@@ -14,6 +14,7 @@ make fmt                              # ruff format + ruff check --fix
 make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
 make up / make down / make logs       # Docker stack (migrate service, then api)
+make backup                           # sqlite3 .backup of data/kommunalka.db into backups/
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
 ```
 
