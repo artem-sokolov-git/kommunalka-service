@@ -10,7 +10,7 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
 ```sh
 make up      # build and start in Docker: http://localhost:8000
 make down    # stop
-make backup  # copy the database into backups/, safe while running
+make backup  # copy the database into data/backups/ now
 ```
 
 Bills are browsable at http://localhost:8000, the API docs are at `/docs`. Each month,
@@ -18,8 +18,9 @@ open a household → "Подать показания", enter the readings and i
 previous month.
 
 Migrations are applied on start. The database is a plain file on the host,
-`data/kommunalka.db`, kept between restarts. To restore a backup: `make down`, copy it over
-`data/kommunalka.db`, `make up`. Set `KOMMUNALKA_PORT` if 8000 is busy.
+`data/kommunalka.db`, kept between restarts. The `backup` service copies it into
+`data/backups/` on start and daily, keeping the 30 newest. To restore a backup: `make down`,
+copy it over `data/kommunalka.db`, `make up`. Set `KOMMUNALKA_PORT` if 8000 is busy.
 
 ## Develop
 

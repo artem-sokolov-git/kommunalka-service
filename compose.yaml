@@ -28,3 +28,18 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+  backup:
+    <<: *app
+    # A copy on start, then daily; the 30 newest are kept in ./data/backups.
+    command:
+      - python
+      - -m
+      - kommunalka.infrastructure.db.backup
+      - /data/kommunalka.db
+      - /data/backups
+      - --every=86400
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped

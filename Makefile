@@ -41,9 +41,5 @@ down: ## Stop the stack (the database in ./data is kept)
 logs: ## Follow API logs
 	docker compose logs -f api
 
-backup: ## Back up data/kommunalka.db into backups/ (safe while running)
-	@test -f data/kommunalka.db || (echo "data/kommunalka.db not found" && exit 1)
-	@mkdir -p backups
-	@file=backups/kommunalka-$$(date +%Y%m%d-%H%M%S).db \
-		&& sqlite3 data/kommunalka.db ".backup $$file" \
-		&& echo "$$file: $$(sqlite3 $$file 'PRAGMA integrity_check')"
+backup: ## Back up data/kommunalka.db into data/backups/ (safe while running)
+	uv run python -m kommunalka.infrastructure.db.backup data/kommunalka.db data/backups
