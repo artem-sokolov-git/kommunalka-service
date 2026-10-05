@@ -24,9 +24,13 @@ from kommunalka.domain import (
     Unit,
 )
 
+TODAY = date(2026, 12, 31)
+
 
 def submit(uow: UnitOfWork, meter: Meter, value: str, taken_on: date) -> Reading:
-    return submit_reading(uow, meter_id=meter.id, value=Decimal(value), taken_on=taken_on)
+    return submit_reading(
+        uow, meter_id=meter.id, value=Decimal(value), taken_on=taken_on, today=TODAY
+    )
 
 
 def test_links_reading_to_previous(uow: UnitOfWork, gas_meter: Meter) -> None:
@@ -119,6 +123,7 @@ def test_submits_readings_of_several_meters(
         household_id=household.id,
         taken_on=date(2026, 10, 2),
         values={gas_meter.id: Decimal(100), power_meter.id: Decimal(5000)},
+        today=TODAY,
     )
 
     assert {r.meter_id for r in readings} == {gas_meter.id, power_meter.id}
@@ -135,6 +140,7 @@ def test_submits_all_readings_or_none(
             household_id=household.id,
             taken_on=date(2026, 10, 2),
             values={gas_meter.id: Decimal(100), power_meter.id: Decimal(4999)},
+            today=TODAY,
         )
 
     assert uow.readings.list_by_meter(gas_meter.id) == []
@@ -151,4 +157,5 @@ def test_rejects_meter_of_another_household(
             household_id=other.id,
             taken_on=date(2026, 10, 2),
             values={gas_meter.id: Decimal(100)},
+            today=TODAY,
         )

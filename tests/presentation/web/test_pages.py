@@ -26,15 +26,19 @@ def test_escapes_user_input(client: TestClient, household: dict[str, Any]) -> No
     assert "Дом <b>" not in page
 
 
-@pytest.mark.parametrize("month", ["10", "13"])
+@pytest.mark.parametrize(
+    ("month", "detail"),
+    [("10", "Счёт за октябрь 2026 не найден"), ("13", "Страница не найдена")],
+)
 def test_missing_bill_page_is_html_404(
-    client: TestClient, household: dict[str, Any], month: str
+    client: TestClient, household: dict[str, Any], month: str, detail: str
 ) -> None:
     response = client.get(f"/view/households/{household['id']}/bills/2026/{month}")
 
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("text/html")
     assert "<h1>Не найдено</h1>" in response.text
+    assert detail in response.text
 
 
 def test_api_errors_stay_json(client: TestClient, household: dict[str, Any]) -> None:

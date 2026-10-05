@@ -53,9 +53,11 @@ class Reading:
 
 
 def next_reading(
-    meter: "Meter", last: Reading | None, *, value: Decimal, taken_on: date
+    meter: "Meter", last: Reading | None, *, value: Decimal, taken_on: date, today: date
 ) -> Reading:
     """Create a reading that follows `last`, the latest reading of the meter."""
+    if taken_on > today:
+        raise DomainError(f"Reading date {taken_on} is in the future")
     if not meter.is_in_service_on(taken_on):
         raise DomainError(f"Meter {meter.label!r} is not in service on {taken_on}")
     if last is not None and taken_on <= last.taken_on:

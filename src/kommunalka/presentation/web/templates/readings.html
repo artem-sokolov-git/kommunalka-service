@@ -38,7 +38,10 @@
           <td class="num">
             {% if meter.last %}
             {{ meter.last_value }} {{ meter.unit }}
-            <div class="muted small">{{ meter.last.taken_on.strftime("%d.%m.%Y") }}</div>
+            <div class="muted small">
+              {{ meter.last.taken_on.strftime("%d.%m.%Y") }}
+              {% if meter.correctable %}· <a href="{{ url_for('correction_page', household_id=household.id, reading_id=meter.last.id) }}">исправить</a>{% endif %}
+            </div>
             {% else %}—{% endif %}
           </td>
           <td class="num">
@@ -56,16 +59,18 @@
   <p class="muted">На эту дату нет работающих счётчиков.</p>
   {% endif %}
 
-  <h2>Счёт за {{ period_title }}</h2>
-  {% if bill_issued %}
-  <p><a href="{{ url_for('bill_page', household_id=household.id, year=period.start.year, month=period.start.month) }}">Открыть счёт →</a></p>
-  {% else %}
+  <h2>Счета</h2>
+  {% for period, title in unbilled %}
   <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}">
-    <p class="muted">Показания за {{ period_title }} подаются в начале следующего месяца. Когда они внесены, выставьте счёт.</p>
     <input type="hidden" name="year" value="{{ period.start.year }}">
     <input type="hidden" name="month" value="{{ period.start.month }}">
     <input type="hidden" name="taken_on" value="{{ taken_on.isoformat() }}">
-    <button type="submit">Выставить счёт</button>
+    <p><button type="submit">Выставить счёт за {{ title }}</button></p>
   </form>
-  {% endif %}
+  {% else %}
+  <p class="muted">
+    Невыставленных счетов нет: счёт появится здесь, когда будут поданы показания за следующий месяц.
+    {% if last_billed %}<a href="{{ url_for('bill_page', household_id=household.id, year=last_billed.start.year, month=last_billed.start.month) }}">Последний счёт →</a>{% endif %}
+  </p>
+  {% endfor %}
 {% endblock %}

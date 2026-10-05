@@ -12,6 +12,8 @@ from kommunalka.application.use_cases import (
 from kommunalka.domain import Unit
 from kommunalka.infrastructure.db.unit_of_work import SqlUnitOfWork
 
+TODAY = date(2026, 12, 31)
+
 
 def test_issues_bill_end_to_end(uow: SqlUnitOfWork) -> None:
     household = register_household(uow, name="Home", address="Main st, 1")
@@ -32,8 +34,12 @@ def test_issues_bill_end_to_end(uow: SqlUnitOfWork) -> None:
         valid_from=date(2026, 1, 1),
         valid_to=date(2026, 12, 31),
     )
-    submit_reading(uow, meter_id=meter.id, value=Decimal(100), taken_on=date(2026, 9, 2))
-    submit_reading(uow, meter_id=meter.id, value=Decimal("142.5"), taken_on=date(2026, 10, 3))
+    submit_reading(
+        uow, meter_id=meter.id, value=Decimal(100), taken_on=date(2026, 9, 2), today=TODAY
+    )
+    submit_reading(
+        uow, meter_id=meter.id, value=Decimal("142.5"), taken_on=date(2026, 10, 3), today=TODAY
+    )
 
     bill = issue_bill(
         uow,

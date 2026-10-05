@@ -9,6 +9,8 @@ from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases import install_meter, remove_meter, submit_reading
 from kommunalka.domain import DomainError, DuplicateMeterError, Household, Meter, Service
 
+TODAY = date(2026, 12, 31)
+
 
 def test_installs_meter(uow: UnitOfWork, gas_meter: Meter) -> None:
     assert uow.meters.get(gas_meter.id) == gas_meter
@@ -69,7 +71,9 @@ def test_rejects_removing_twice(uow: UnitOfWork, gas_meter: Meter) -> None:
 
 
 def test_rejects_removal_before_last_reading(uow: UnitOfWork, gas_meter: Meter) -> None:
-    submit_reading(uow, meter_id=gas_meter.id, value=Decimal(1), taken_on=date(2026, 10, 2))
+    submit_reading(
+        uow, meter_id=gas_meter.id, value=Decimal(1), taken_on=date(2026, 10, 2), today=TODAY
+    )
 
     with pytest.raises(DomainError):
         remove_meter(uow, meter_id=gas_meter.id, removed_on=date(2026, 10, 1))

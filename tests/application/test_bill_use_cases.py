@@ -19,11 +19,17 @@ from kommunalka.domain import (
     TariffPeriod,
 )
 
+TODAY = date(2026, 12, 31)
+
 
 @pytest.fixture
 def september_readings(uow: UnitOfWork, gas_meter: Meter) -> None:
-    submit_reading(uow, meter_id=gas_meter.id, value=Decimal(100), taken_on=date(2026, 9, 2))
-    submit_reading(uow, meter_id=gas_meter.id, value=Decimal("142.5"), taken_on=date(2026, 10, 3))
+    submit_reading(
+        uow, meter_id=gas_meter.id, value=Decimal(100), taken_on=date(2026, 9, 2), today=TODAY
+    )
+    submit_reading(
+        uow, meter_id=gas_meter.id, value=Decimal("142.5"), taken_on=date(2026, 10, 3), today=TODAY
+    )
 
 
 @pytest.mark.usefixtures("september_readings")

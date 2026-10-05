@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import date
 from io import StringIO
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from sqlalchemy import Engine
 
 from kommunalka.infrastructure.db.engine import create_db_engine
 from kommunalka.presentation.app import create_app
+from kommunalka.presentation.dependencies import get_today
 
 ROOT = Path(__file__).parents[1]
 
@@ -37,5 +39,8 @@ def engine(alembic_config: Config) -> Iterator[Engine]:
 
 @pytest.fixture
 def client(engine: Engine) -> Iterator[TestClient]:
-    with TestClient(create_app(engine)) as client:
+    """App client where today is 2026-12-31, after every date the tests use."""
+    app = create_app(engine)
+    app.dependency_overrides[get_today] = lambda: date(2026, 12, 31)
+    with TestClient(app) as client:
         yield client

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block page_title %}Исправить показание · {{ household.name }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs">
+    <a href="{{ url_for('home_page') }}">Главная</a> →
+    <a href="{{ url_for('bills_page', household_id=household.id) }}">{{ household.name }}</a> →
+    <a href="{{ url_for('readings_page', household_id=household.id) }}">Показания</a> →
+    Исправить
+  </p>
+  <h1>Исправить показание</h1>
+  <p class="subtitle">{{ meter.label }} · {{ reading.taken_on.strftime("%d.%m.%Y") }}</p>
+
+  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+
+  <form method="post" action="{{ url_for('correct_reading_form', household_id=household.id, reading_id=reading.id) }}">
+    <label class="field">
+      Показание
+      <input class="reading" type="text" name="value" inputmode="decimal" value="{{ value }}" required autofocus>
+    </label>
+    {% if previous %}
+    <p class="muted small">Предыдущее: {{ previous_value }} от {{ previous.taken_on.strftime("%d.%m.%Y") }}</p>
+    {% endif %}
+    <p>
+      <button type="submit">Сохранить</button>
+      <a href="{{ url_for('readings_page', household_id=household.id) }}">Отмена</a>
+    </p>
+  </form>
+{% endblock %}

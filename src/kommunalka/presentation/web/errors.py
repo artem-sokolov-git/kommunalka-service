@@ -1,6 +1,7 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
+from kommunalka.presentation.web.messages import translate
 from kommunalka.presentation.web.templating import templates
 
 
@@ -11,5 +12,5 @@ def is_page_request(request: Request) -> bool:
 
 def error_page(request: Request, code: int, detail: str) -> HTMLResponse:
     return templates.TemplateResponse(
-        request, "error.html", {"code": code, "detail": detail}, status_code=code
+        request, "error.html", {"code": code, "detail": translate(detail)}, status_code=code
     )

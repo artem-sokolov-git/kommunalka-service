@@ -152,36 +152,70 @@ class MeterInput:
     meter: Meter
     service: Service
     last_reading: Reading | None
+    last_reading_correctable: bool
 
 
 @dataclass(frozen=True, slots=True)
 class ReadingForm:
-    """What a person needs to submit readings taken on a day and bill the month they close."""
+    """What a person needs to submit readings taken on a day and bill the months they close."""
 
     household: Household
     meters: list[MeterInput]
-    billing_period: DateRange
-    bill_issued: bool
+    unbilled_periods: list[DateRange]
+    """Months closed by submitted readings but not billed yet, oldest first."""
+    last_billed_period: DateRange | None
 
 
 def reading_form(uow: UnitOfWork, household_id: UUID, taken_on: date) -> ReadingForm:
-    billing_period = DateRange.month_before(taken_on)
     with uow:
         household = require(uow.households.get(household_id), "Household", household_id)
         services = {service.id: service for service in uow.services.list_all()}
-        meters = [
-            MeterInput(
-                meter=meter,
-                service=services[meter.service_id],
-                last_reading=_last_reading(uow.readings.list_by_meter(meter.id)),
+        billed = {bill.period for bill in uow.bills.list_by_household(household_id)}
+        closed: set[DateRange] = set()
+        meters = []
+        for meter in uow.meters.list_by_household(household_id):
+            readings = uow.readings.list_by_meter(meter.id)
+            # A baseline reading closes a month without consumption, there is nothing to bill.
+            closed.update(r.billing_period for r in readings if r.previous_taken_on is not None)
+            if not meter.is_in_service_on(taken_on):
+                continue
+            last = _last_reading(readings)
+            meters.append(
+                MeterInput(
+                    meter=meter,
+                    service=services[meter.service_id],
+                    last_reading=last,
+                    last_reading_correctable=last is not None and last.billing_period not in billed,
+                )
             )
-            for meter in uow.meters.list_by_household(household_id)
-            if meter.is_in_service_on(taken_on)
-        ]
-        bill_issued = any(
-            bill.period == billing_period for bill in uow.bills.list_by_household(household_id)
+    return ReadingForm(
+        household=household,
+        meters=meters,
+        unbilled_periods=sorted(closed - billed, key=lambda period: period.start),
+        last_billed_period=max(billed, key=lambda period: period.start) if billed else None,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ReadingCorrection:
+    household: Household
+    meter: Meter
+    reading: Reading
+    previous: Reading | None
+
+
+def reading_correction(uow: UnitOfWork, household_id: UUID, reading_id: UUID) -> ReadingCorrection:
+    """A reading of the household with the one before it, to correct its value."""
+    with uow:
+        household = require(uow.households.get(household_id), "Household", household_id)
+        reading = require(uow.readings.get(reading_id), "Reading", reading_id)
+        meter = require(uow.meters.get(reading.meter_id), "Meter", reading.meter_id)
+        if meter.household_id != household_id:
+            raise NotFoundError(f"Reading {reading_id} not found")
+        previous, _ = readings_for_month(
+            uow.readings.list_by_meter(meter.id), reading.billing_period
         )
-    return ReadingForm(household, meters, billing_period, bill_issued)
+    return ReadingCorrection(household, meter, reading, previous)
 
 
 def _last_reading(readings: list[Reading]) -> Reading | None:

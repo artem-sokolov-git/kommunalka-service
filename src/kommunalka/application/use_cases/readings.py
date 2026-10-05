@@ -16,17 +16,24 @@ from kommunalka.domain import (
 )
 
 
-def submit_reading(uow: UnitOfWork, *, meter_id: UUID, value: Decimal, taken_on: date) -> Reading:
-    """Add a reading after the last one of the meter."""
+def submit_reading(
+    uow: UnitOfWork, *, meter_id: UUID, value: Decimal, taken_on: date, today: date
+) -> Reading:
+    """Add a reading after the last one of the meter, taken no later than `today`."""
     with uow:
         meter = require(uow.meters.get(meter_id), "Meter", meter_id)
-        reading = _add_reading(uow, meter, value, taken_on)
+        reading = _add_reading(uow, meter, value, taken_on, today)
         uow.commit()
     return reading
 
 
 def submit_readings(
-    uow: UnitOfWork, *, household_id: UUID, taken_on: date, values: Mapping[UUID, Decimal]
+    uow: UnitOfWork,
+    *,
+    household_id: UUID,
+    taken_on: date,
+    values: Mapping[UUID, Decimal],
+    today: date,
 ) -> list[Reading]:
     """Add readings of several household meters at once: all of them or none."""
     with uow:
@@ -37,17 +44,19 @@ def submit_readings(
             if meter.household_id != household_id:
                 raise DomainError(f"Meter {meter.label!r} belongs to another household")
             try:
-                readings.append(_add_reading(uow, meter, value, taken_on))
+                readings.append(_add_reading(uow, meter, value, taken_on, today))
             except DomainError as error:
                 raise type(error)(f"{meter.label}: {error}") from error
         uow.commit()
     return readings
 
 
-def _add_reading(uow: UnitOfWork, meter: Meter, value: Decimal, taken_on: date) -> Reading:
+def _add_reading(
+    uow: UnitOfWork, meter: Meter, value: Decimal, taken_on: date, today: date
+) -> Reading:
     readings = uow.readings.list_by_meter(meter.id)
     last = max(readings, key=lambda r: r.taken_on, default=None)
-    reading = next_reading(meter, last, value=value, taken_on=taken_on)
+    reading = next_reading(meter, last, value=value, taken_on=taken_on, today=today)
     ensure_unique_reading(reading, readings)
     _ensure_not_billed(uow, meter, reading)
     uow.readings.save(reading)

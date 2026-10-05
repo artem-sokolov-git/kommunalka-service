@@ -5,7 +5,7 @@ from fastapi import APIRouter, status
 from kommunalka.application import queries
 from kommunalka.application.use_cases import remove_meter, submit_reading
 from kommunalka.presentation.api.schemas import MeterOut, MeterRemovalIn, ReadingIn, ReadingOut
-from kommunalka.presentation.dependencies import UowDep
+from kommunalka.presentation.dependencies import TodayDep, UowDep
 
 router = APIRouter(prefix="/meters", tags=["meters"])
 
@@ -16,8 +16,10 @@ def create_meter_removal(meter_id: UUID, body: MeterRemovalIn, uow: UowDep) -> M
 
 
 @router.post("/{meter_id}/readings", status_code=status.HTTP_201_CREATED)
-def create_reading(meter_id: UUID, body: ReadingIn, uow: UowDep) -> ReadingOut:
-    reading = submit_reading(uow, meter_id=meter_id, value=body.value, taken_on=body.taken_on)
+def create_reading(meter_id: UUID, body: ReadingIn, uow: UowDep, today: TodayDep) -> ReadingOut:
+    reading = submit_reading(
+        uow, meter_id=meter_id, value=body.value, taken_on=body.taken_on, today=today
+    )
     return ReadingOut.model_validate(reading)
 
 

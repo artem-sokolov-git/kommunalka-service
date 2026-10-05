@@ -15,6 +15,8 @@ from kommunalka.domain import (
     readings_for_month,
 )
 
+TODAY = date(2026, 12, 31)
+
 METER_ID = uuid4()
 METER = Meter(
     household_id=uuid4(),
@@ -95,8 +97,8 @@ def test_one_reading_per_meter_and_month() -> None:
 
 
 def test_next_reading_follows_last() -> None:
-    first = next_reading(METER, None, value=Decimal(100), taken_on=date(2026, 9, 2))
-    second = next_reading(METER, first, value=Decimal(120), taken_on=date(2026, 10, 3))
+    first = next_reading(METER, None, value=Decimal(100), taken_on=date(2026, 9, 2), today=TODAY)
+    second = next_reading(METER, first, value=Decimal(120), taken_on=date(2026, 10, 3), today=TODAY)
 
     assert first.previous_taken_on is None
     assert second.previous_taken_on == first.taken_on
@@ -108,14 +110,14 @@ def test_next_reading_follows_last() -> None:
     [
         (date(2026, 9, 2), "120"),  # not after the last one
         (date(2026, 10, 3), "99"),  # value decreased
-        (date(2027, 1, 2), "120"),  # meter already removed
+        (date(2027, 1, 2), "120"),  # in the future
     ],
 )
 def test_next_reading_rejects(taken_on: date, value: str) -> None:
     last = make_reading("100", date(2026, 9, 2))
 
     with pytest.raises(DomainError):
-        next_reading(METER, last, value=Decimal(value), taken_on=taken_on)
+        next_reading(METER, last, value=Decimal(value), taken_on=taken_on, today=TODAY)
 
 
 def test_readings_for_month() -> None:
@@ -128,3 +130,17 @@ def test_readings_for_month() -> None:
     )
     assert readings_for_month([august, september], august.billing_period) == (None, august)
     assert readings_for_month([august], september.billing_period) == (None, None)
+
+
+def test_next_reading_rejects_future_date() -> None:
+    with pytest.raises(DomainError, match="in the future"):
+        next_reading(
+            METER, None, value=Decimal(1), taken_on=date(2026, 10, 6), today=date(2026, 10, 5)
+        )
+
+
+def test_next_reading_rejects_meter_out_of_service() -> None:
+    with pytest.raises(DomainError, match="not in service"):
+        next_reading(
+            METER, None, value=Decimal(1), taken_on=date(2027, 1, 2), today=date(2027, 2, 1)
+        )
