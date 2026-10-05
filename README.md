@@ -1,3 +1,81 @@
 # Kommunalka Service
 
-Simple service for tracking utility bills
+Simple service for tracking utility bills: meters, monthly readings, tariffs and bills
+of a household.
+
+Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
+
+## Run
+
+```sh
+make up      # build and start in Docker: http://localhost:8000
+make down    # stop
+```
+
+Bills are browsable at http://localhost:8000, the API docs are at `/docs`.
+
+Migrations are applied on start. The database is a plain file on the host,
+`data/kommunalka.db`, kept between restarts. Back it up with
+`sqlite3 data/kommunalka.db ".backup backup.db"`. Set `KOMMUNALKA_PORT` if 8000 is busy.
+
+## Develop
+
+```sh
+make install                     # dependencies and pre-commit hooks
+make dev                         # API with reload on http://localhost:8000
+make check                       # ruff, ty and tests
+make migration name=add_notes    # migration from model changes
+```
+
+Local runs use `./kommunalka.db`, separate from the Docker one. Override with
+`KOMMUNALKA_DATABASE_URL`. Run `make` for all commands.
+
+## How billing works
+
+- A reading taken in a month closes the previous one: a reading on October 1–5 is
+  for September. One reading per meter and month; the first reading of a meter
+  is a baseline.
+- A tariff is valid from `valid_from` to `valid_to`, or open-ended without it.
+  For a metered service the price is per unit, for an unmetered one (e.g. gas
+  transportation) it is a monthly amount.
+- A bill covers one calendar month: consumption × tariff for each metered
+  service, plus monthly amounts of unmetered services (`fixed_amounts` overrides
+  them). Once a month is billed, its readings can't be changed.
+
+## API
+
+| Method | Path | |
+|---|---|---|
+| `POST`, `GET` | `/households` | register, list |
+| `GET` | `/households/{id}` | get |
+| `POST`, `GET` | `/households/{id}/meters` | install a meter, list |
+| `POST` | `/meters/{id}/removal` | remove a meter |
+| `POST`, `GET` | `/meters/{id}/readings` | submit a reading, list |
+| `PATCH` | `/readings/{id}` | correct a reading of an unbilled month |
+| `POST`, `GET` | `/services` | add a service, list |
+| `POST`, `GET` | `/services/{id}/tariffs` | set a tariff, list |
+| `POST`, `GET` | `/households/{id}/bills` | issue a bill for a month, list |
+| `GET` | `/households/{id}/bills/{year}/{month}` | get a bill |
+
+Money and readings are decimal strings in JSON. Errors: 404 not found,
+409 conflict (duplicate, overlapping tariff, billed month), 422 rule violation.
+
+```sh
+curl -X POST localhost:8000/meters/$METER/readings \
+  -H 'content-type: application/json' -d '{"value": "41768", "taken_on": "2026-10-01"}'
+curl -X POST localhost:8000/households/$HOUSEHOLD/bills \
+  -H 'content-type: application/json' -d '{"year": 2026, "month": 9}'
+```
+
+## Layout
+
+```
+src/kommunalka/
+├── domain/           entities, value objects, bill calculation
+├── application/      use cases, queries, repository and unit of work protocols
+├── infrastructure/   SQLite repositories, unit of work, migrations
+└── presentation/
+    ├── api/          JSON API: routers, schemas, error mapping
+    ├── web/          HTML pages: home, bills of a household, a bill
+    └── app.py        assembles the API and the pages into one app
+```
