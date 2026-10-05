@@ -54,6 +54,10 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 [tool.ty.environment]
 python-version = "3.13"
 
+[tool.ty.src]
+# Local one-off tooling, not part of the repository.
+exclude = ["legacy"]
+
 [tool.alembic]
 script_location = "kommunalka.infrastructure.db:migrations"
 file_template = "%%(rev)s_%%(slug)s"
