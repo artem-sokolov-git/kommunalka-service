@@ -22,7 +22,7 @@
     {% if previous %}
     <p class="muted small">Предыдущее: {{ previous_value }} от {{ previous.taken_on.strftime("%d.%m.%Y") }}</p>
     {% endif %}
-    <p>
+    <p class="actions">
       <button type="submit">Сохранить</button>
       <a href="{{ url_for('readings_page', household_id=household.id) }}">Отмена</a>
     </p>

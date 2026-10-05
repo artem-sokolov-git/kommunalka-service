@@ -18,6 +18,10 @@ class DuplicateReadingError(DomainError):
     """Meter already has a reading for the billing month."""
 
 
+class FutureReadingError(DomainError):
+    """Reading is dated after today."""
+
+
 class MissingReadingError(DomainError):
     """Meter has no reading required for the calculation."""
 

@@ -18,13 +18,13 @@
   <form method="post" action="{{ url_for('submit_readings_form', household_id=household.id) }}">
     <label class="field">
       Дата
-      <input type="date" name="taken_on" value="{{ taken_on.isoformat() }}" required>
+      <input type="date" name="taken_on" value="{{ taken_on.isoformat() }}" max="{{ today.isoformat() }}" required>
     </label>
     <table>
       <thead>
         <tr>
           <th>Счётчик</th>
-          <th class="num">Последнее</th>
+          <th class="num wide-only">Последнее</th>
           <th class="num">Новое</th>
         </tr>
       </thead>
@@ -34,8 +34,14 @@
           <td>
             {{ meter.label }}
             <div class="muted small">{{ meter.service }}</div>
+            {% if meter.last %}
+            <div class="muted small narrow-only">
+              Было {{ meter.last_value }} {{ meter.unit }} · {{ meter.last.taken_on.strftime("%d.%m") }}
+              {% if meter.correctable %}· <a href="{{ url_for('correction_page', household_id=household.id, reading_id=meter.last.id) }}">исправить</a>{% endif %}
+            </div>
+            {% endif %}
           </td>
-          <td class="num">
+          <td class="num wide-only">
             {% if meter.last %}
             {{ meter.last_value }} {{ meter.unit }}
             <div class="muted small">
@@ -64,13 +70,18 @@
   <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}">
     <input type="hidden" name="year" value="{{ period.start.year }}">
     <input type="hidden" name="month" value="{{ period.start.month }}">
-    <input type="hidden" name="taken_on" value="{{ taken_on.isoformat() }}">
     <p><button type="submit">Выставить счёт за {{ title }}</button></p>
   </form>
   {% else %}
   <p class="muted">
     Невыставленных счетов нет: счёт появится здесь, когда будут поданы показания за следующий месяц.
-    {% if last_billed %}<a href="{{ url_for('bill_page', household_id=household.id, year=last_billed.start.year, month=last_billed.start.month) }}">Последний счёт →</a>{% endif %}
+    {% if last_billed %}<a href="{{ url_for('bill_page', household_id=household.id, year=last_billed.start.year, month=last_billed.start.month) }}">Последний счёт: {{ last_billed_title }} →</a>{% endif %}
   </p>
   {% endfor %}
+  {% if saved or error %}
+  <script>
+    // The message is shown once: drop it from the address so a reload doesn't repeat it.
+    history.replaceState(null, "", location.pathname);
+  </script>
+  {% endif %}
 {% endblock %}

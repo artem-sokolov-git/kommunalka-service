@@ -72,9 +72,10 @@ th { color: var(--muted); font-weight: 500; font-size: 14px; }
   background: var(--surface);
   color: var(--text);
 }
-.card:hover { text-decoration: none; outline: 2px solid var(--accent); }
 .card h3 { margin: 0 0 2px; font-size: 18px; }
+.card h3 a { color: var(--text); }
 .card p { margin: 0; }
+.card .actions { margin-top: 16px; }
 .card .last { margin-top: 12px; display: flex; justify-content: space-between; gap: 12px; }
 .card .amount { font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -84,8 +85,18 @@ th { color: var(--muted); font-weight: 500; font-size: 14px; }
 tfoot td { border-bottom: none; font-weight: 600; font-size: 20px; }
 .months { display: flex; justify-content: space-between; margin-top: 24px; }
 
+/* Bills of a household */
+
+h2.year { padding: 0 8px; }
+
+/* Phones: wide-only columns move into narrow-only lines under the first cell */
+
+.narrow-only { display: none; }
+
 @media (max-width: 560px) {
-  .readings-col { display: none; }
+  .readings-col, .wide-only { display: none; }
+  .narrow-only { display: block; }
+  td input.reading { width: 7em; }
 }
 
 /* Forms */
@@ -103,6 +114,8 @@ input[type="date"], input.reading {
   padding: 6px 10px;
 }
 input.reading { width: 9em; text-align: right; font-variant-numeric: tabular-nums; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 
 button, .button {
   display: inline-block;

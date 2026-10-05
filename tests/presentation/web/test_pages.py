@@ -82,6 +82,32 @@ def test_serves_stylesheet(client: TestClient) -> None:
     page = client.get("/").text
     response = client.get("/static/style.css")
 
-    assert 'href="http://testserver/static/style.css"' in page
+    assert 'href="http://testserver/static/style.css?v=' in page
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/css")
+
+
+def test_home_links_to_readings(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get("/").text
+
+    assert f'href="http://testserver/view/households/{household["id"]}/readings"' in page
+
+
+def test_bill_page_names_neighbour_months(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
+
+    assert "← август 2026" in page
+
+
+def test_bill_links_have_distinct_names(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get(f"/view/households/{household['id']}/bills").text
+
+    assert 'aria-label="Сентябрь 2026"' in page
+    assert 'aria-label="Август 2026"' in page
+
+
+def test_serves_favicon(client: TestClient) -> None:
+    page = client.get("/").text
+
+    assert 'href="http://testserver/static/favicon.svg?v=' in page
+    assert client.get("/static/favicon.svg").status_code == 200

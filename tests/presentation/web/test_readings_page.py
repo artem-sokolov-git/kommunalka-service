@@ -60,7 +60,8 @@ def test_rejects_reading_from_the_future(
     )
 
     assert response.status_code == 422
-    assert "Газовый: дата показания 01.01.2027 ещё не наступила" in response.text
+    assert "Дата показания 01.01.2027 ещё не наступила" in response.text
+    assert "Газовый: дата" not in response.text
 
 
 def test_saves_readings_and_redirects(
@@ -78,7 +79,11 @@ def test_saves_readings_and_redirects(
 
 @pytest.mark.parametrize(
     ("value", "message"),
-    [("41000", "Газовый: показание меньше предыдущего"), ("abc", "Не число"), ("", "хотя бы одно")],
+    [
+        ("41000", "Газовый: показание меньше предыдущего"),
+        ("abc", "Газовый: не число «abc»"),
+        ("", "хотя бы одно"),
+    ],
 )
 def test_rejects_bad_input_keeping_it(
     client: TestClient, household: dict[str, Any], meter: dict[str, Any], value: str, message: str
@@ -109,15 +114,31 @@ def test_issues_bill_after_readings(
     assert client.get(response.headers["location"]).status_code == 200
 
 
-def test_bill_error_is_shown_on_the_page(client: TestClient, household: dict[str, Any]) -> None:
+def test_bill_error_is_shown_on_the_readings_page(
+    client: TestClient, household: dict[str, Any]
+) -> None:
     response = client.post(
         f"/view/households/{household['id']}/bills",
-        data={"year": "2026", "month": "10", "taken_on": "2026-11-03"},
+        data={"year": "2026", "month": "10"},
+        follow_redirects=False,
     )
 
-    assert response.status_code == 422
-    assert "Подать показания" in response.text
-    assert "Нет показания счётчика «Газовый» за октябрь 2026" in response.text
+    assert response.status_code == 303
+    page = client.get(response.headers["location"])
+    assert page.url.path == readings_url(household)
+    assert "Нет показания счётчика «Газовый» за октябрь 2026" in page.text
+
+
+def test_date_cannot_be_picked_in_the_future(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get(readings_url(household)).text
+
+    assert 'max="2026-12-31"' in page
+
+
+def test_names_the_month_of_the_last_bill(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get(readings_url(household)).text
+
+    assert "Последний счёт: сентябрь 2026" in page
 
 
 @pytest.fixture

@@ -15,18 +15,21 @@
       <tr>
         <th>Услуга</th>
         <th class="readings-col">Показания</th>
-        <th class="num">Расход</th>
-        <th class="num">Тариф</th>
+        <th class="num wide-only">Расход</th>
+        <th class="num wide-only">Тариф</th>
         <th class="num">Сумма</th>
       </tr>
     </thead>
     <tbody>
     {% for line in lines %}
       <tr>
-        <td>{{ line.service }}</td>
+        <td>
+          {{ line.service }}
+          {% if line.quantity %}<div class="muted small narrow-only">{{ line.quantity }} × {{ line.price }}</div>{% endif %}
+        </td>
         <td class="readings readings-col">{{ line.readings }}</td>
-        <td class="num">{{ line.quantity }}</td>
-        <td class="num">{{ line.price }}</td>
+        <td class="num wide-only">{{ line.quantity }}</td>
+        <td class="num wide-only">{{ line.price }}</td>
         <td class="num">{{ line.amount }}</td>
       </tr>
     {% endfor %}
@@ -35,14 +38,14 @@
       <tr>
         <td>Итого</td>
         <td class="readings-col"></td>
-        <td></td>
-        <td></td>
+        <td class="wide-only"></td>
+        <td class="wide-only"></td>
         <td class="num">{{ total }}</td>
       </tr>
     </tfoot>
   </table>
   <nav class="months no-print">
-    <span>{% if previous %}<a href="{{ url_for('bill_page', household_id=household.id, year=previous.year, month=previous.month) }}">← {{ previous.strftime("%m.%Y") }}</a>{% endif %}</span>
-    <span>{% if next %}<a href="{{ url_for('bill_page', household_id=household.id, year=next.year, month=next.month) }}">{{ next.strftime("%m.%Y") }} →</a>{% endif %}</span>
+    <span>{% if previous %}<a href="{{ url_for('bill_page', household_id=household.id, year=previous.year, month=previous.month) }}">← {{ previous_title }}</a>{% endif %}</span>
+    <span>{% if next %}<a href="{{ url_for('bill_page', household_id=household.id, year=next.year, month=next.month) }}">{{ next_title }} →</a>{% endif %}</span>
   </nav>
 {% endblock %}

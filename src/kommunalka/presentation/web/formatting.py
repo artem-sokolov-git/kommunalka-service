@@ -38,4 +38,4 @@ def parse_number(text: str) -> Decimal:
     try:
         return Decimal(cleaned)
     except InvalidOperation:
-        raise InputError(f"Не число: {text!r}") from None
+        raise InputError(f"не число «{text}»") from None

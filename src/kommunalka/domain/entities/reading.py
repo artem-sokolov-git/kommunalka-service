@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from kommunalka.domain.exceptions import DomainError, DuplicateReadingError
+from kommunalka.domain.exceptions import DomainError, DuplicateReadingError, FutureReadingError
 from kommunalka.domain.value_objects import DateRange
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ def next_reading(
 ) -> Reading:
     """Create a reading that follows `last`, the latest reading of the meter."""
     if taken_on > today:
-        raise DomainError(f"Reading date {taken_on} is in the future")
+        raise FutureReadingError(f"Reading date {taken_on} is in the future")
     if not meter.is_in_service_on(taken_on):
         raise DomainError(f"Meter {meter.label!r} is not in service on {taken_on}")
     if last is not None and taken_on <= last.taken_on:

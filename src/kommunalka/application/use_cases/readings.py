@@ -8,6 +8,7 @@ from kommunalka.application._common import require
 from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.domain import (
     DomainError,
+    FutureReadingError,
     Meter,
     Reading,
     ensure_not_billed,
@@ -45,6 +46,8 @@ def submit_readings(
                 raise DomainError(f"Meter {meter.label!r} belongs to another household")
             try:
                 readings.append(_add_reading(uow, meter, value, taken_on, today))
+            except FutureReadingError:
+                raise  # about the date of the whole submission, not this meter
             except DomainError as error:
                 raise type(error)(f"{meter.label}: {error}") from error
         uow.commit()

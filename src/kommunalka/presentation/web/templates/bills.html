@@ -8,12 +8,12 @@
   <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
   <p><a class="button" href="{{ url_for('readings_page', household_id=household.id) }}">Подать показания</a></p>
   {% for year in years %}
-  <h2><span>{{ year.year }}</span><span class="num">{{ year.total }}</span></h2>
+  <h2 class="year"><span>{{ year.year }}</span><span class="num">{{ year.total }}</span></h2>
   <table>
     <tbody>
     {% for bill in year.bills %}
       <tr>
-        <td><a href="{{ url_for('bill_page', household_id=household.id, year=bill.year, month=bill.month) }}">{{ bill.title | capitalize }}</a></td>
+        <td><a href="{{ url_for('bill_page', household_id=household.id, year=bill.year, month=bill.month) }}" aria-label="{{ bill.title | capitalize }} {{ bill.year }}">{{ bill.title | capitalize }}</a></td>
         <td class="num">{{ bill.total }}</td>
       </tr>
     {% endfor %}

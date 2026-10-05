@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Annotated
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Form, Path, Request
@@ -114,7 +115,9 @@ def bill_page(
             "lines": [_line(line) for line in details.lines],
             "total": money(details.bill.total),
             "previous": details.previous_period,
+            "previous_title": _month_title(details.previous_period),
             "next": details.next_period,
+            "next_title": _month_title(details.next_period),
         },
     )
 
@@ -139,6 +142,10 @@ def _line(details: queries.BillLineDetails) -> LineView:
             )
 
 
+def _month_title(start: date | None) -> str:
+    return f"{month_name(start.month)} {start.year}" if start else ""
+
+
 def _summary(bill: Bill) -> BillSummary:
     start: date = bill.period_start
     return BillSummary(start.year, start.month, month_name(start.month), money(bill.total))
@@ -152,8 +159,11 @@ def readings_page(
     today: TodayDep,
     taken_on: date | None = None,
     saved: bool = False,
+    error: str | None = None,
 ) -> HTMLResponse:
-    return _readings_page(request, uow, household_id, taken_on or today, saved=saved)
+    return _readings_page(
+        request, uow, household_id, taken_on or today, today, saved=saved, error=error
+    )
 
 
 @router.post("/view/households/{household_id}/readings", response_class=HTMLResponse)
@@ -168,7 +178,7 @@ def submit_readings_form(
 ) -> Response:
     entered = dict(zip(meter_id, value, strict=True))
     try:
-        values = {m: parse_number(v) for m, v in entered.items() if v.strip()}
+        values = _parse_values(uow, household_id, taken_on, entered)
         if not values:
             raise InputError("Введите хотя бы одно показание")
         submit_readings(
@@ -181,16 +191,42 @@ def submit_readings_form(
             uow,
             household_id,
             taken_on,
+            today,
             entered=entered,
             error=translate(detail),
             code=code,
         )
     except InputError as error:
         return _readings_page(
-            request, uow, household_id, taken_on, entered=entered, error=str(error), code=422
+            request,
+            uow,
+            household_id,
+            taken_on,
+            today,
+            entered=entered,
+            error=str(error),
+            code=422,
         )
     url = request.url_for("readings_page", household_id=household_id)
     return RedirectResponse(f"{url}?saved=1&taken_on={taken_on}", status_code=303)
+
+
+def _parse_values(
+    uow: UnitOfWork, household_id: UUID, taken_on: date, entered: Mapping[UUID, str]
+) -> dict[UUID, Decimal]:
+    values = {}
+    for meter_id, text in entered.items():
+        if not text.strip():
+            continue
+        try:
+            values[meter_id] = parse_number(text)
+        except InputError as error:
+            labels = {
+                item.meter.id: item.meter.label
+                for item in queries.reading_form(uow, household_id, taken_on).meters
+            }
+            raise InputError(f"{labels.get(meter_id, 'Счётчик')}: {error}") from None
+    return values
 
 
 @router.post("/view/households/{household_id}/bills", response_class=HTMLResponse)
@@ -200,15 +236,14 @@ def issue_bill_form(
     uow: UowDep,
     year: Annotated[int, Form()],
     month: Annotated[int, Form(ge=1, le=12)],
-    taken_on: Annotated[date, Form()],
 ) -> Response:
     try:
         issue_bill(uow, household_id=household_id, year=year, month=month, fixed_amounts={})
     except (DomainError, ApplicationError) as error:
-        code, detail = describe_error(error)
-        return _readings_page(
-            request, uow, household_id, taken_on, error=translate(detail), code=code
-        )
+        # Back to the readings page, so reloading it doesn't post the form again.
+        url = request.url_for("readings_page", household_id=household_id)
+        query = urlencode({"error": translate(describe_error(error)[1])})
+        return RedirectResponse(f"{url}?{query}", status_code=303)
     url = request.url_for("bill_page", household_id=household_id, year=year, month=month)
     return RedirectResponse(str(url), status_code=303)
 
@@ -218,6 +253,7 @@ def _readings_page(
     uow: UnitOfWork,
     household_id: UUID,
     taken_on: date,
+    today: date,
     *,
     saved: bool = False,
     entered: Mapping[UUID, str] | None = None,
@@ -232,6 +268,7 @@ def _readings_page(
             "title": "Показания",
             "household": form.household,
             "taken_on": taken_on,
+            "today": today,
             "meters": [
                 {
                     "id": item.meter.id,
@@ -250,6 +287,9 @@ def _readings_page(
                 for period in form.unbilled_periods
             ],
             "last_billed": form.last_billed_period,
+            "last_billed_title": _month_title(
+                form.last_billed_period.start if form.last_billed_period else None
+            ),
             "saved": saved,
             "error": error,
         },

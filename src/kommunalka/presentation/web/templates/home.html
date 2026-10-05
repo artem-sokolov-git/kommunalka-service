@@ -6,8 +6,8 @@
   {% if households %}
   <div class="cards">
     {% for item in households %}
-    <a class="card" href="{{ url_for('bills_page', household_id=item.household.id) }}">
-      <h3>{{ item.household.name }}</h3>
+    <div class="card">
+      <h3><a href="{{ url_for('bills_page', household_id=item.household.id) }}">{{ item.household.name }}</a></h3>
       <p class="muted">{{ item.household.address }}</p>
       <div class="last">
         {% if item.last_bill %}
@@ -17,7 +17,11 @@
         <span class="muted">Счетов пока нет</span>
         {% endif %}
       </div>
-    </a>
+      <p class="actions">
+        <a class="button" href="{{ url_for('readings_page', household_id=item.household.id) }}">Подать показания</a>
+        <a href="{{ url_for('bills_page', household_id=item.household.id) }}">Все счета</a>
+      </p>
+    </div>
     {% endfor %}
   </div>
   {% else %}
