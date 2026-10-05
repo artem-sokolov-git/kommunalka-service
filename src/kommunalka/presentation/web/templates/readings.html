@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block page_title %}Показания · {{ household.name }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs">
+    <a href="{{ url_for('home_page') }}">Главная</a> →
+    <a href="{{ url_for('bills_page', household_id=household.id) }}">{{ household.name }}</a> →
+    Показания
+  </p>
+  <h1>Подать показания</h1>
+  <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
+
+  {% if saved %}<p class="notice success">Показания сохранены.</p>{% endif %}
+  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+
+  {% if meters %}
+  <form method="post" action="{{ url_for('submit_readings_form', household_id=household.id) }}">
+    <label class="field">
+      Дата
+      <input type="date" name="taken_on" value="{{ taken_on.isoformat() }}" required>
+    </label>
+    <table>
+      <thead>
+        <tr>
+          <th>Счётчик</th>
+          <th class="num">Последнее</th>
+          <th class="num">Новое</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for meter in meters %}
+        <tr>
+          <td>
+            {{ meter.label }}
+            <div class="muted small">{{ meter.service }}</div>
+          </td>
+          <td class="num">
+            {% if meter.last %}
+            {{ meter.last_value }} {{ meter.unit }}
+            <div class="muted small">{{ meter.last.taken_on.strftime("%d.%m.%Y") }}</div>
+            {% else %}—{% endif %}
+          </td>
+          <td class="num">
+            <input type="hidden" name="meter_id" value="{{ meter.id }}">
+            <input class="reading" type="text" name="value" inputmode="decimal"
+                   value="{{ meter.entered }}" aria-label="{{ meter.label }}">
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p><button type="submit">Сохранить</button></p>
+  </form>
+  {% else %}
+  <p class="muted">На эту дату нет работающих счётчиков.</p>
+  {% endif %}
+
+  <h2>Счёт за {{ period_title }}</h2>
+  {% if bill_issued %}
+  <p><a href="{{ url_for('bill_page', household_id=household.id, year=period.start.year, month=period.start.month) }}">Открыть счёт →</a></p>
+  {% else %}
+  <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}">
+    <p class="muted">Показания за {{ period_title }} подаются в начале следующего месяца. Когда они внесены, выставьте счёт.</p>
+    <input type="hidden" name="year" value="{{ period.start.year }}">
+    <input type="hidden" name="month" value="{{ period.start.month }}">
+    <input type="hidden" name="taken_on" value="{{ taken_on.isoformat() }}">
+    <button type="submit">Выставить счёт</button>
+  </form>
+  {% endif %}
+{% endblock %}

@@ -88,6 +88,38 @@ tfoot td { border-bottom: none; font-weight: 600; font-size: 20px; }
   .readings-col { display: none; }
 }
 
+/* Forms */
+
+.small { font-size: 14px; }
+
+.field { display: inline-flex; flex-direction: column; gap: 4px; margin-bottom: 16px; color: var(--muted); font-size: 14px; }
+
+input[type="date"], input.reading {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+input.reading { width: 9em; text-align: right; font-variant-numeric: tabular-nums; }
+
+button, .button {
+  display: inline-block;
+  font: inherit;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.button:hover { text-decoration: none; }
+
+.notice { padding: 10px 14px; border-radius: 8px; }
+.notice.success { background: color-mix(in srgb, #34c759 18%, var(--bg)); }
+.notice.error { background: color-mix(in srgb, #ff3b30 18%, var(--bg)); }
+
 @media print {
   header, .no-print { display: none; }
 }

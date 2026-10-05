@@ -10,6 +10,7 @@ from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.domain import (
     Bill,
     BillLine,
+    DateRange,
     Household,
     Meter,
     Reading,
@@ -144,6 +145,49 @@ def bill_details(uow: UnitOfWork, household_id: UUID, year: int, month: int) -> 
         previous_period=bills[index - 1].period_start if index > 0 else None,
         next_period=bills[index + 1].period_start if index + 1 < len(bills) else None,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class MeterInput:
+    meter: Meter
+    service: Service
+    last_reading: Reading | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReadingForm:
+    """What a person needs to submit readings taken on a day and bill the month they close."""
+
+    household: Household
+    meters: list[MeterInput]
+    billing_period: DateRange
+    bill_issued: bool
+
+
+def reading_form(uow: UnitOfWork, household_id: UUID, taken_on: date) -> ReadingForm:
+    billing_period = DateRange.month_before(taken_on)
+    with uow:
+        household = require(uow.households.get(household_id), "Household", household_id)
+        services = {service.id: service for service in uow.services.list_all()}
+        meters = [
+            MeterInput(
+                meter=meter,
+                service=services[meter.service_id],
+                last_reading=_last_reading(uow.readings.list_by_meter(meter.id)),
+            )
+            for meter in uow.meters.list_by_household(household_id)
+            if meter.is_in_service_on(taken_on)
+        ]
+        bill_issued = any(
+            bill.period == billing_period for bill in uow.bills.list_by_household(household_id)
+        )
+    return ReadingForm(household, meters, billing_period, bill_issued)
+
+
+def _last_reading(readings: list[Reading]) -> Reading | None:
+    if not readings:
+        return None
+    return max(readings, key=lambda reading: reading.taken_on)
 
 
 def _find_bill(bills: list[Bill], year: int, month: int) -> Bill:

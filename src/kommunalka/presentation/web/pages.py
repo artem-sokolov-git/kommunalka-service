@@ -1,20 +1,30 @@
 """HTML pages for people, on top of the same application queries as the JSON API."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Form, Path, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from kommunalka.application import queries
-from kommunalka.domain import Bill, FixedBillLine, Household, MeteredBillLine, Unit
+from kommunalka.application.exceptions import ApplicationError
+from kommunalka.application.unit_of_work import UnitOfWork
+from kommunalka.application.use_cases import issue_bill, submit_readings
+from kommunalka.domain import Bill, DomainError, FixedBillLine, Household, MeteredBillLine, Unit
 from kommunalka.presentation.dependencies import UowDep
+from kommunalka.presentation.errors import describe_error
 from kommunalka.presentation.web.templating import templates
 
 router = APIRouter(include_in_schema=False)
+
+
+class InputError(Exception):
+    """A form value that can't be parsed."""
+
 
 MONTHS = (
     "январь", "февраль", "март", "апрель", "май", "июнь",
@@ -143,3 +153,111 @@ def _number(value: Decimal) -> str:
 
 def _money(value: Decimal) -> str:
     return f"{value:,.2f}".replace(",", NBSP).replace(".", ",")
+
+
+@router.get("/view/households/{household_id}/readings", response_class=HTMLResponse)
+def readings_page(
+    request: Request,
+    household_id: UUID,
+    uow: UowDep,
+    taken_on: date | None = None,
+    saved: bool = False,
+) -> HTMLResponse:
+    return _readings_page(request, uow, household_id, taken_on or date.today(), saved=saved)
+
+
+@router.post("/view/households/{household_id}/readings", response_class=HTMLResponse)
+def submit_readings_form(
+    request: Request,
+    household_id: UUID,
+    uow: UowDep,
+    taken_on: Annotated[date, Form()],
+    meter_id: Annotated[list[UUID], Form()],
+    value: Annotated[list[str], Form()],
+) -> Response:
+    entered = dict(zip(meter_id, value, strict=True))
+    try:
+        values = {m: _parse_number(v) for m, v in entered.items() if v.strip()}
+        if not values:
+            raise InputError("Введите хотя бы одно показание")
+        submit_readings(uow, household_id=household_id, taken_on=taken_on, values=values)
+    except (DomainError, ApplicationError) as error:
+        code, detail = describe_error(error)
+        return _readings_page(
+            request, uow, household_id, taken_on, entered=entered, error=detail, code=code
+        )
+    except InputError as error:
+        return _readings_page(
+            request, uow, household_id, taken_on, entered=entered, error=str(error), code=422
+        )
+    url = request.url_for("readings_page", household_id=household_id)
+    return RedirectResponse(f"{url}?saved=1&taken_on={taken_on}", status_code=303)
+
+
+@router.post("/view/households/{household_id}/bills", response_class=HTMLResponse)
+def issue_bill_form(
+    request: Request,
+    household_id: UUID,
+    uow: UowDep,
+    year: Annotated[int, Form()],
+    month: Annotated[int, Form(ge=1, le=12)],
+    taken_on: Annotated[date, Form()],
+) -> Response:
+    try:
+        issue_bill(uow, household_id=household_id, year=year, month=month, fixed_amounts={})
+    except (DomainError, ApplicationError) as error:
+        code, detail = describe_error(error)
+        return _readings_page(request, uow, household_id, taken_on, error=detail, code=code)
+    url = request.url_for("bill_page", household_id=household_id, year=year, month=month)
+    return RedirectResponse(str(url), status_code=303)
+
+
+def _readings_page(
+    request: Request,
+    uow: UnitOfWork,
+    household_id: UUID,
+    taken_on: date,
+    *,
+    saved: bool = False,
+    entered: Mapping[UUID, str] | None = None,
+    error: str | None = None,
+    code: int = 200,
+) -> HTMLResponse:
+    form = queries.reading_form(uow, household_id, taken_on)
+    period = form.billing_period
+    return templates.TemplateResponse(
+        request,
+        "readings.html",
+        {
+            "title": "Показания",
+            "household": form.household,
+            "taken_on": taken_on,
+            "meters": [
+                {
+                    "id": item.meter.id,
+                    "label": item.meter.label,
+                    "service": item.service.name,
+                    "last": item.last_reading,
+                    "last_value": _number(item.last_reading.value) if item.last_reading else "",
+                    "unit": UNITS[item.service.unit] if item.service.unit else "",
+                    "entered": (entered or {}).get(item.meter.id, ""),
+                }
+                for item in form.meters
+            ],
+            "period": period,
+            "period_title": f"{MONTHS[period.start.month - 1]} {period.start.year}",
+            "bill_issued": form.bill_issued,
+            "saved": saved,
+            "error": error,
+        },
+        status_code=code,
+    )
+
+
+def _parse_number(text: str) -> Decimal:
+    """Parse a number as people type it: `41 768`, `41768,5`."""
+    cleaned = text.replace(" ", "").replace(NBSP, "").replace(",", ".")
+    try:
+        return Decimal(cleaned)
+    except InvalidOperation:
+        raise InputError(f"Не число: {text!r}") from None

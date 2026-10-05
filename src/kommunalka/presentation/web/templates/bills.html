@@ -6,6 +6,7 @@
   <p class="crumbs"><a href="{{ url_for('home_page') }}">Главная</a> → {{ household.name }}</p>
   <h1>Счета</h1>
   <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
+  <p><a class="button" href="{{ url_for('readings_page', household_id=household.id) }}">Подать показания</a></p>
   {% for year in years %}
   <h2><span>{{ year.year }}</span><span class="num">{{ year.total }}</span></h2>
   <table>

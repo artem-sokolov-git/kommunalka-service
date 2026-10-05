@@ -5,10 +5,14 @@ import pytest
 
 from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases import (
+    add_service,
     correct_reading,
+    install_meter,
     issue_bill,
+    register_household,
     remove_meter,
     submit_reading,
+    submit_readings,
 )
 from kommunalka.domain import (
     DomainError,
@@ -17,6 +21,7 @@ from kommunalka.domain import (
     Meter,
     PeriodAlreadyBilledError,
     Reading,
+    Unit,
 )
 
 
@@ -91,3 +96,59 @@ def test_billed_month_is_frozen(uow: UnitOfWork, household: Household, gas_meter
 
     with pytest.raises(PeriodAlreadyBilledError):
         correct_reading(uow, reading_id=september.id, value=Decimal(150))
+
+
+@pytest.fixture
+def power_meter(uow: UnitOfWork, household: Household) -> Meter:
+    power = add_service(uow, name="Electricity", unit=Unit.KWH)
+    return install_meter(
+        uow,
+        household_id=household.id,
+        service_id=power.id,
+        serial_number="E-1",
+        label="Hall",
+        installed_on=date(2025, 1, 1),
+    )
+
+
+def test_submits_readings_of_several_meters(
+    uow: UnitOfWork, household: Household, gas_meter: Meter, power_meter: Meter
+) -> None:
+    readings = submit_readings(
+        uow,
+        household_id=household.id,
+        taken_on=date(2026, 10, 2),
+        values={gas_meter.id: Decimal(100), power_meter.id: Decimal(5000)},
+    )
+
+    assert {r.meter_id for r in readings} == {gas_meter.id, power_meter.id}
+
+
+def test_submits_all_readings_or_none(
+    uow: UnitOfWork, household: Household, gas_meter: Meter, power_meter: Meter
+) -> None:
+    submit(uow, power_meter, "5000", date(2026, 9, 2))
+
+    with pytest.raises(DomainError, match="Hall: Reading value decreased"):
+        submit_readings(
+            uow,
+            household_id=household.id,
+            taken_on=date(2026, 10, 2),
+            values={gas_meter.id: Decimal(100), power_meter.id: Decimal(4999)},
+        )
+
+    assert uow.readings.list_by_meter(gas_meter.id) == []
+
+
+def test_rejects_meter_of_another_household(
+    uow: UnitOfWork, household: Household, gas_meter: Meter
+) -> None:
+    other = register_household(uow, name="Other", address="Other st, 2")
+
+    with pytest.raises(DomainError, match="belongs to another household"):
+        submit_readings(
+            uow,
+            household_id=other.id,
+            taken_on=date(2026, 10, 2),
+            values={gas_meter.id: Decimal(100)},
+        )
