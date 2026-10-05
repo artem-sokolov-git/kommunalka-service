@@ -2,7 +2,8 @@ x-app: &app
   build: .
   image: kommunalka-service
   volumes:
-    - data:/data
+    # The database is a plain file on the host: ./data/kommunalka.db
+    - ./data:/data
 
 services:
   migrate:
@@ -27,6 +28,3 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
-
-volumes:
-  data:

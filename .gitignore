@@ -12,3 +12,4 @@ wheels/
 # Local databases
 *.db
 legacy
+data

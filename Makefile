@@ -35,7 +35,7 @@ migration: ## Create a migration from model changes: make migration name=add_not
 up: ## Build and start the stack in Docker
 	docker compose up -d --build --wait
 
-down: ## Stop the stack (data volume is kept)
+down: ## Stop the stack (the database in ./data is kept)
 	docker compose down
 
 logs: ## Follow API logs

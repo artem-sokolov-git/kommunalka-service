@@ -3,7 +3,7 @@
 **/__pycache__
 .pytest_cache
 .ruff_cache
-*.db
+**/*.db
 tests
 Dockerfile
 compose.yaml
