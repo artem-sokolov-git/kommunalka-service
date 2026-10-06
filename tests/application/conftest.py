@@ -43,6 +43,9 @@ class _Store[T: _Entity]:
     def save(self, entity: T) -> None:
         self.items[entity.id] = entity
 
+    def delete(self, entity_id: UUID) -> None:
+        del self.items[entity_id]
+
     def begin(self) -> None:
         self._snapshot = dict(self.items)
 

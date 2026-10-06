@@ -13,6 +13,7 @@ from kommunalka.domain.entities.tariff import (
     ensure_no_overlap,
     ensure_price_not_billed,
     next_tariff_period,
+    revert_price_change,
 )
 from kommunalka.domain.exceptions import (
     DomainError,
@@ -66,4 +67,5 @@ __all__ = [
     "next_reading",
     "next_tariff_period",
     "readings_for_month",
+    "revert_price_change",
 ]

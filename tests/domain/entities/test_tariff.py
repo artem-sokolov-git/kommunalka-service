@@ -15,6 +15,7 @@ from kommunalka.domain import (
     ensure_no_overlap,
     ensure_price_not_billed,
     next_tariff_period,
+    revert_price_change,
 )
 
 SERVICE_ID = uuid4()
@@ -115,3 +116,26 @@ def test_price_of_a_billed_month_cannot_change() -> None:
     ensure_price_not_billed(uuid4(), date(2026, 9, 1), [september])
     with pytest.raises(PeriodAlreadyBilledError):
         ensure_price_not_billed(SERVICE_ID, date(2026, 9, 1), [september])
+
+
+def test_undoing_a_price_reopens_the_one_before() -> None:
+    before = make_tariff(date(2025, 12, 1), date(2026, 12, 31), price="300.78")
+    latest = TariffPeriod(service_id=SERVICE_ID, price=Decimal(320), valid_from=date(2027, 1, 1))
+
+    removed, reopened = revert_price_change([latest, before], service_id=SERVICE_ID)
+
+    assert removed == latest
+    assert reopened is not None
+    assert (reopened.id, reopened.valid_to) == (before.id, None)
+
+
+def test_undoing_a_price_after_a_gap_reopens_nothing() -> None:
+    before = make_tariff(date(2025, 1, 1), date(2025, 6, 30))
+    latest = TariffPeriod(service_id=SERVICE_ID, price=Decimal(2), valid_from=date(2026, 1, 1))
+
+    assert revert_price_change([before, latest], service_id=SERVICE_ID) == (latest, None)
+
+
+def test_nothing_to_undo_without_prices() -> None:
+    with pytest.raises(DomainError, match="no price to undo"):
+        revert_price_change([make_tariff(date(2025, 1, 1), date(2025, 6, 30))], service_id=uuid4())

@@ -74,6 +74,27 @@ def next_tariff_period(
     return replace(latest, valid_to=valid_from - timedelta(days=1)), new
 
 
+def revert_price_change(
+    periods: Iterable[TariffPeriod], *, service_id: UUID
+) -> tuple[TariffPeriod, TariffPeriod | None]:
+    """Undo the latest price of the service.
+
+    Return the latest period, to be removed, and the one before it, open-ended again, if it
+    ended right before the latest one.
+    """
+    own = sorted(
+        (period for period in periods if period.service_id == service_id),
+        key=lambda period: period.valid_from,
+    )
+    if not own:
+        raise DomainError("Service has no price to undo")
+    latest = own[-1]
+    previous = own[-2] if len(own) > 1 else None
+    if previous is None or previous.valid_to != latest.valid_from - timedelta(days=1):
+        return latest, None
+    return latest, replace(previous, valid_to=None)
+
+
 def ensure_price_not_billed(service_id: UUID, valid_from: date, bills: Iterable[Bill]) -> None:
     """Raise if a bill with the service already covers a month from `valid_from` on."""
     for bill in bills:

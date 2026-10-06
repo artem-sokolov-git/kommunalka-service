@@ -9,6 +9,7 @@ from kommunalka.domain import (
     ensure_no_overlap,
     ensure_price_not_billed,
     next_tariff_period,
+    revert_price_change,
 )
 
 
@@ -53,3 +54,21 @@ def change_price(
         uow.tariff_periods.save(new)
         uow.commit()
     return new
+
+
+def undo_price_change(uow: UnitOfWork, *, service_id: UUID) -> TariffPeriod | None:
+    """Remove the latest price unless a bill uses it; return the price in force again."""
+    with uow:
+        require(uow.services.get(service_id), "Service", service_id)
+        removed, reopened = revert_price_change(
+            uow.tariff_periods.list_by_service(service_id), service_id=service_id
+        )
+        for household in uow.households.list_all():
+            ensure_price_not_billed(
+                service_id, removed.valid_from, uow.bills.list_by_household(household.id)
+            )
+        uow.tariff_periods.delete(removed.id)
+        if reopened is not None:
+            uow.tariff_periods.save(reopened)
+        uow.commit()
+    return reopened

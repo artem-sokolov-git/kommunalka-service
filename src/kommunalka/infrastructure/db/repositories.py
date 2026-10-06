@@ -179,6 +179,11 @@ class SqlTariffPeriodRepository:
             },
         )
 
+    def delete(self, tariff_period_id: UUID, /) -> None:
+        self._connection.execute(
+            delete(TariffPeriodRow).where(TariffPeriodRow.id == tariff_period_id)
+        )
+
 
 class SqlBillRepository:
     def __init__(self, connection: Connection) -> None:

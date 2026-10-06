@@ -195,3 +195,14 @@ def test_changes_price(client: TestClient, gas: dict[str, Any]) -> None:
         ("2026-01-01", "2026-12-31"),
         ("2027-01-01", None),
     ]
+
+
+def test_undoes_latest_price(client: TestClient, gas: dict[str, Any]) -> None:
+    post(client, f"/services/{gas['id']}/tariffs", {"price": "0.78", "valid_from": "2026-01-01"})
+    post(client, f"/services/{gas['id']}/prices", {"price": "0.85", "valid_from": "2027-01-01"})
+
+    response = client.delete(f"/services/{gas['id']}/prices/latest")
+
+    assert response.status_code == 200
+    assert (response.json()["price"], response.json()["valid_to"]) == ("0.78", None)
+    assert len(client.get(f"/services/{gas['id']}/tariffs").json()) == 1

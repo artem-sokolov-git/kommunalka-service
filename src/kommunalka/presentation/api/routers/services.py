@@ -3,7 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, status
 
 from kommunalka.application import queries
-from kommunalka.application.use_cases import add_service, change_price, set_tariff
+from kommunalka.application.use_cases import (
+    add_service,
+    change_price,
+    set_tariff,
+    undo_price_change,
+)
 from kommunalka.presentation.api.schemas import (
     PriceChangeIn,
     ServiceIn,
@@ -45,6 +50,13 @@ def create_price_change(service_id: UUID, body: PriceChangeIn, uow: UowDep) -> T
         uow, service_id=service_id, price=body.price, valid_from=body.valid_from
     )
     return TariffPeriodOut.model_validate(tariff_period)
+
+
+@router.delete("/{service_id}/prices/latest")
+def delete_latest_price(service_id: UUID, uow: UowDep) -> TariffPeriodOut | None:
+    """Undo the latest price unless a bill uses it; return the price in force again."""
+    current = undo_price_change(uow, service_id=service_id)
+    return TariffPeriodOut.model_validate(current) if current else None
 
 
 @router.get("/{service_id}/tariffs")
