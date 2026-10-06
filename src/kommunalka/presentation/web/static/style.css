@@ -188,6 +188,9 @@ h2 { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 700; }
 .dot.ok { background: var(--ok-soft); color: var(--ok-strong); }
 .dot.warn { background: var(--warn); color: var(--surface); }
 
+.card.household-card { flex-direction: row; align-items: center; color: var(--text); }
+.card.household-card:hover { border-color: var(--accent); text-decoration: none; color: var(--text); }
+
 /* Service icons and colours */
 
 .icon {

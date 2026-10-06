@@ -22,13 +22,6 @@ from kommunalka.domain import (
 
 
 @dataclass(frozen=True, slots=True)
-class HouseholdOverview:
-    household: Household
-    bill_count: int
-    last_bill: Bill | None
-
-
-@dataclass(frozen=True, slots=True)
 class HouseholdBills:
     household: Household
     bills: list[Bill]
@@ -102,15 +95,6 @@ def list_bills(uow: UnitOfWork, household_id: UUID) -> list[Bill]:
 
 def get_bill(uow: UnitOfWork, household_id: UUID, year: int, month: int) -> Bill:
     return _find_bill(list_bills(uow, household_id), year, month)
-
-
-def household_overviews(uow: UnitOfWork) -> list[HouseholdOverview]:
-    with uow:
-        overviews = []
-        for household in uow.households.list_all():
-            bills = uow.bills.list_by_household(household.id)
-            overviews.append(HouseholdOverview(household, len(bills), bills[-1] if bills else None))
-        return overviews
 
 
 @dataclass(frozen=True, slots=True)

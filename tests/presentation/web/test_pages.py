@@ -64,7 +64,7 @@ def test_home_lists_households(client: TestClient, household: dict[str, Any]) ->
 
     assert "ул. Садовая 2" in page
     assert f'href="http://testserver/view/households/{household["id"]}"' in page
-    assert "Последний счёт: сентябрь 2026 · всего 2" in page
+    assert "Последний счёт" not in page
 
 
 def test_home_without_households(client: TestClient) -> None:
@@ -176,3 +176,11 @@ def test_bill_page_carries_a_shareable_card(client: TestClient, household: dict[
     assert '"total": "531,62"' in page
     assert "data-share-bill" in page
     assert client.get("/static/bill-card.js").status_code == 200
+
+
+def test_households_page_lists_even_one(client: TestClient, household: dict[str, Any]) -> None:
+    response = client.get("/view/households")
+
+    assert response.status_code == 200
+    assert "Домохозяйства" in response.text
+    assert f'href="http://testserver/view/households/{household["id"]}"' in response.text

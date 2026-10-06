@@ -66,13 +66,6 @@ class BillSummary:
 
 
 @dataclass(frozen=True, slots=True)
-class HouseholdCard:
-    household: Household
-    bill_count: int
-    last_bill: BillSummary | None
-
-
-@dataclass(frozen=True, slots=True)
 class YearView:
     year: int
     total: str
@@ -111,18 +104,19 @@ class ChartBar:
 
 @router.get("/", response_class=HTMLResponse)
 def home_page(request: Request, uow: UowDep) -> Response:
-    overviews = queries.household_overviews(uow)
-    if len(overviews) == 1:
-        url = request.url_for("household_page", household_id=overviews[0].household.id)
+    households = queries.list_households(uow)
+    if len(households) == 1:
+        url = request.url_for("household_page", household_id=households[0].id)
         return RedirectResponse(str(url))
-    households = [
-        HouseholdCard(
-            household=overview.household,
-            bill_count=overview.bill_count,
-            last_bill=_summary(overview.last_bill) if overview.last_bill else None,
-        )
-        for overview in overviews
-    ]
+    return _households_page(request, households)
+
+
+@router.get("/view/households", response_class=HTMLResponse)
+def households_page(request: Request, uow: UowDep) -> HTMLResponse:
+    return _households_page(request, queries.list_households(uow))
+
+
+def _households_page(request: Request, households: list[Household]) -> HTMLResponse:
     return templates.TemplateResponse(
         request, "home.html", {"title": "Коммуналка", "households": households}
     )
