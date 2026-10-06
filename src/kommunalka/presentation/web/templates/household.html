@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, check %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>{{ household.name }}</h1>
+      <p class="subtitle">{{ household.address }}</p>
+    </div>
+    <p class="muted" style="margin: 0">Сегодня {{ today }}</p>
+  </div>
+
+  <div class="grid">
+    {% if status == "done" %}
+    <section class="card">
+      <div class="row">{{ check() }}<h2>На этот месяц всё сделано</h2></div>
+      <ul class="checklist">
+        <li class="spread"><span>Показания на {{ taken_on }}</span><span class="ok">поданы</span></li>
+        <li class="spread"><span>Счёт за {{ closed_month }}</span><span class="ok">выставлен</span></li>
+      </ul>
+      <div class="inset">
+        <div class="amount">Следующие показания — {{ next_window }}</div>
+        <div class="muted small">через {{ days_left }}</div>
+      </div>
+      <div class="actions">
+        {% if last_bill %}<a class="button" href="{{ url_for('bill_page', household_id=household.id, year=last_bill.year, month=last_bill.month) }}">Открыть счёт за {{ last_bill.title }}</a>{% endif %}
+        <a class="button link" href="{{ url_for('readings_page', household_id=household.id) }}">Подать показания</a>
+      </div>
+    </section>
+    {% elif status == "unbilled" %}
+    <section class="card warn">
+      <div class="row"><span class="dot warn">2</span><h2>Осталось выставить счёт</h2></div>
+      <p style="margin: 0">Показания поданы, а счёт за {{ unbilled | join(", ") }} ещё не выставлен. Проверьте сумму за транспортировку газа и выставьте его.</p>
+      <div class="actions">
+        <a class="button" href="{{ url_for('readings_page', household_id=household.id) }}#bills">Выставить счёт</a>
+      </div>
+    </section>
+    {% else %}
+    <section class="card warn">
+      <div class="row"><span class="dot warn">1</span><h2>Пора подать показания</h2></div>
+      <p style="margin: 0">Перепишите цифры со счётчиков — из них сразу сложится счёт за {{ closed_month }}.</p>
+      <div class="actions">
+        <a class="button" href="{{ url_for('readings_page', household_id=household.id) }}">Подать показания</a>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card">
+      {% if last_bill %}
+      <div class="card-head">
+        <h2 class="quiet">Последний счёт · {{ last_bill.title }}</h2>
+        <a class="small amount" href="{{ url_for('bill_page', household_id=household.id, year=last_bill.year, month=last_bill.month) }}">Подробнее</a>
+      </div>
+      <div class="row" style="align-items: baseline">
+        <span class="total">{{ last_bill.total }} <span class="currency">грн</span></span>
+        {% if last_bill.change %}<span class="pill {{ last_bill.change.direction }}">{{ last_bill.change.text }}</span>{% endif %}
+      </div>
+      <div class="share" aria-hidden="true">
+        {% for line in breakdown %}<span class="{{ line.kind }}" style="width: {{ line.share }}%"></span>{% endfor %}
+      </div>
+      <ul class="legend">
+        {% for line in breakdown %}
+        <li><span class="swatch {{ line.kind }}"></span><span class="grow">{{ line.name }}{% if line.quantity %} <span class="muted">· {{ line.quantity }}</span>{% endif %}</span><span class="amount">{{ line.amount }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <h2 class="quiet">Счетов пока нет</h2>
+      <p class="muted" style="margin: 0">Первый счёт появится, когда будут поданы показания за два месяца подряд.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if chart | length > 1 %}
+  <section class="card">
+    <div class="card-head">
+      <h2>Расходы по месяцам</h2>
+      {% if year_total %}<span class="muted">{{ year_total.year }}: <strong style="color: var(--text)">{{ year_total.total }} грн</strong> за {{ year_total.months }} мес.</span>{% endif %}
+    </div>
+    <div class="chart-scroll">
+      <div class="chart">
+        {% for bar in chart %}
+        <a href="{{ url_for('bill_page', household_id=household.id, year=bar.year, month=bar.month) }}" aria-label="{{ bar.title }}"{% if bar.latest %} class="latest"{% endif %}>
+          <span class="value">{{ bar.value }}</span>
+          <span class="chart-body"><span class="bar" style="--height: {{ bar.height }}%"></span></span>
+          <span>{{ bar.label }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="hint">Над столбцами — сумма в тысячах гривен. Нажмите на месяц, чтобы открыть счёт.</p>
+  </section>
+  {% endif %}
+
+  {% if meters %}
+  <section class="grid compact" aria-label="Счётчики">
+    {% for meter in meters %}
+    <div class="card meter">
+      {{ icon(meter.kind) }}
+      <div class="grow">
+        <div class="amount">{{ meter.label }}</div>
+        <div class="muted small">№ {{ meter.serial }}{% if meter.taken_on %} · {{ meter.taken_on }}{% endif %}</div>
+      </div>
+      <div class="meter-value">{{ meter.value }} <small>{{ meter.unit }}</small></div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endblock %}

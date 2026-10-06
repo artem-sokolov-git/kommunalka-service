@@ -27,7 +27,7 @@ def test_shows_meters_with_last_reading(client: TestClient, household: dict[str,
 
     assert "Газовый" in page
     assert "41\u00a0768 м³" in page
-    assert "01.10.2026" in page
+    assert "Было 1\u00a0октября" in page
 
 
 def test_without_unbilled_months_links_last_bill(
@@ -35,9 +35,67 @@ def test_without_unbilled_months_links_last_bill(
 ) -> None:
     page = client.get(readings_url(household)).text
 
-    assert "Невыставленных счетов нет" in page
+    assert "Ждёт выставления" not in page
     assert f"/view/households/{household['id']}/bills/2026/9" in page
-    assert "Выставить счёт" not in page
+
+
+def test_previews_the_bill_the_readings_close(
+    client: TestClient, household: dict[str, Any]
+) -> None:
+    page = client.get(readings_url(household), params={"taken_on": "2026-11-03"}).text
+
+    assert "Счёт за октябрь" in page
+    assert 'data-price="7.96"' in page
+    assert 'name="fixed_amount" inputmode="decimal" value="300,78"' in page
+    assert "Сохранить и выставить счёт" in page
+
+
+def test_saves_readings_and_issues_bill_at_once(
+    client: TestClient, household: dict[str, Any], meter: dict[str, Any]
+) -> None:
+    transport = next(s for s in client.get("/services").json() if not s["unit"])
+    response = client.post(
+        readings_url(household),
+        data={
+            "taken_on": "2026-11-03",
+            "meter_id": [meter["id"]],
+            "value": ["41800"],
+            "action": "issue",
+            "fixed_service_id": [transport["id"]],
+            "fixed_amount": ["295,10"],
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert (
+        f"/view/households/{household['id']}/bills/2026/10?issued=1" in response.headers["location"]
+    )
+    assert "Счёт выставлен" in client.get(response.headers["location"]).text
+    bill = client.get(f"/households/{household['id']}/bills/2026/10").json()
+    assert {line["amount"] for line in bill["lines"]} == {"254.72", "295.10"}
+
+
+def test_failed_bill_keeps_no_readings(
+    client: TestClient, household: dict[str, Any], meter: dict[str, Any]
+) -> None:
+    transport = next(s for s in client.get("/services").json() if not s["unit"])
+    response = client.post(
+        readings_url(household),
+        data={
+            "taken_on": "2026-11-03",
+            "meter_id": [meter["id"]],
+            "value": ["41800"],
+            "action": "issue",
+            "fixed_service_id": [transport["id"]],
+            "fixed_amount": ["abc"],
+        },
+    )
+
+    assert response.status_code == 422
+    assert "не число «abc»" in response.text
+    assert 'value="abc"' in response.text
+    assert len(client.get(f"/meters/{meter['id']}/readings").json()) == 3
 
 
 @pytest.mark.parametrize("opened_on", ["2026-11-03", "2026-12-31", "2027-02-01"])
@@ -109,7 +167,7 @@ def test_issues_bill_after_readings(
 
     assert response.status_code == 303
     assert response.headers["location"].endswith(
-        f"/view/households/{household['id']}/bills/2026/10"
+        f"/view/households/{household['id']}/bills/2026/10?issued=1"
     )
     assert client.get(response.headers["location"]).status_code == 200
 
@@ -170,13 +228,15 @@ def test_corrects_reading(
 ) -> None:
     page = client.get(correction_url(household, november)).text
     assert 'value="41\u00a0800"' in page
-    assert "Предыдущее: 41\u00a0768 от 01.10.2026" in page
+    assert "Предыдущее: 1\u00a0октября 2026" in page
+    assert "41\u00a0768" in page
 
     response = client.post(
         correction_url(household, november), data={"value": "41 790"}, follow_redirects=False
     )
 
     assert response.status_code == 303
+    assert "Показание исправлено" in client.get(response.headers["location"]).text
     assert client.get(f"/meters/{meter['id']}/readings").json()[-1]["value"] == "41790"
 
 

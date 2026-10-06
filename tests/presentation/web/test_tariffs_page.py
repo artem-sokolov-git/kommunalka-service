@@ -25,18 +25,39 @@ def test_lists_prices_with_the_current_one(client: TestClient, services: dict[st
     assert "Транспортировка газа" in page
     assert "в месяц" in page
     assert "за м³" in page
-    assert "с 01.12.2025" in page
+    assert "действует с 1\u00a0декабря 2025" in page
     assert "300,78" in page
-    assert "сейчас" in page
+    assert 'placeholder="300,78"' in page
     assert 'value="2027-01"' in page
 
 
 def test_changes_price_from_a_month(client: TestClient, services: dict[str, str]) -> None:
     page = change(client, services["Транспортировка газа"], "320", "2027-01")
 
-    assert "Цена изменена" in page
-    assert "с 01.12.2025 по 31.12.2026" in page
-    assert "320,00" in page
+    assert "Транспортировка газа: 300,78 → 320,00 с 1\u00a0января 2027" in page
+    assert "С 1\u00a0января 2027 — 320,00 грн в месяц" in page
+
+
+def test_undoes_price_change(client: TestClient, services: dict[str, str]) -> None:
+    transport = services["Транспортировка газа"]
+    change(client, transport, "320", "2027-01")
+
+    response = client.post(f"/view/tariffs/{transport}/undo", follow_redirects=False)
+
+    assert response.status_code == 303
+    page = client.get(response.headers["location"]).text
+    assert "новая цена отменена, действует 300,78" in page
+    [period] = client.get(f"/services/{transport}/tariffs").json()
+    assert (period["price"], period["valid_to"]) == ("300.78", None)
+
+
+def test_lists_older_prices_by_month(client: TestClient, services: dict[str, str]) -> None:
+    change(client, services["Транспортировка газа"], "310", "2026-10")
+
+    page = client.get("/view/tariffs").text
+
+    assert "Прежние цены · 1" in page
+    assert "декабрь 2025 — сентябрь 2026" in page
 
 
 @pytest.mark.parametrize(

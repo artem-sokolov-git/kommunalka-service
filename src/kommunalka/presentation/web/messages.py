@@ -57,15 +57,14 @@ TRANSLATIONS: list[tuple[str, Callable[[re.Match[str]], str]]] = [
     ),
     (
         rf"Bill for {MONTH} already uses the current price",
-        lambda m: (
-            f"счёт за {_month(m)} уже выставлен по текущей цене, "
-            "меняйте цену с более позднего месяца"
-        ),
+        lambda m: f"счёт за {_month(m)} уже выставлен по текущей цене",
     ),
     (
         rf"A new price must start after {DAY}",
         lambda m: f"новая цена должна начинаться позже {_day(m)}",
     ),
+    (r"Tariff price must not be negative", lambda m: "цена не может быть отрицательной"),
+    (r"Service has no price to undo", lambda m: "у услуги нет цены, которую можно отменить"),
     (rf"Bill for {MONTH} already exists", lambda m: f"счёт за {_month(m)} уже выставлен"),
     (rf"Bill for {MONTH} not found", lambda m: f"счёт за {_month(m)} не найден"),
     (rf"No tariff for service \S+ in {MONTH}", lambda m: f"нет тарифа на {_month(m)}"),

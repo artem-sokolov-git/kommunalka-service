@@ -55,8 +55,10 @@ class BillDetails:
     household: Household
     bill: Bill
     lines: list[BillLineDetails]
-    previous_period: date | None
+    previous_bill: Bill | None
     next_period: date | None
+    year_bills: list[Bill]
+    """Bills of the same year, oldest first."""
 
 
 def list_households(uow: UnitOfWork) -> list[Household]:
@@ -111,6 +113,47 @@ def household_overviews(uow: UnitOfWork) -> list[HouseholdOverview]:
         return overviews
 
 
+@dataclass(frozen=True, slots=True)
+class MeterState:
+    meter: Meter
+    service: Service
+    last_reading: Reading | None
+
+
+@dataclass(frozen=True, slots=True)
+class HouseholdSummary:
+    """What a person sees first: bills, meters and months waiting for a bill."""
+
+    household: Household
+    bills: list[Bill]
+    """Oldest first."""
+    meters: list[MeterState]
+    unbilled: list[DateRange]
+    """Months closed by submitted readings but not billed yet, oldest first."""
+    services: dict[UUID, Service]
+
+
+def household_summary(uow: UnitOfWork, household_id: UUID) -> HouseholdSummary:
+    with uow:
+        household = require(uow.households.get(household_id), "Household", household_id)
+        services = {service.id: service for service in uow.services.list_all()}
+        bills = uow.bills.list_by_household(household_id)
+        meters = []
+        closed: set[DateRange] = set()
+        for meter in uow.meters.list_by_household(household_id):
+            readings = uow.readings.list_by_meter(meter.id)
+            closed.update(_closed_periods(readings))
+            meters.append(MeterState(meter, services[meter.service_id], _last_reading(readings)))
+    billed = {bill.period for bill in bills}
+    return HouseholdSummary(
+        household=household,
+        bills=bills,
+        meters=meters,
+        unbilled=sorted(closed - billed, key=lambda period: period.start),
+        services=services,
+    )
+
+
 def household_bills(uow: UnitOfWork, household_id: UUID) -> HouseholdBills:
     with uow:
         household = require(uow.households.get(household_id), "Household", household_id)
@@ -143,8 +186,9 @@ def bill_details(uow: UnitOfWork, household_id: UUID, year: int, month: int) -> 
         household=household,
         bill=bill,
         lines=lines,
-        previous_period=bills[index - 1].period_start if index > 0 else None,
+        previous_bill=bills[index - 1] if index > 0 else None,
         next_period=bills[index + 1].period_start if index + 1 < len(bills) else None,
+        year_bills=[b for b in bills if b.period_start.year == bill.period_start.year],
     )
 
 
@@ -154,6 +198,8 @@ class MeterInput:
     service: Service
     last_reading: Reading | None
     last_reading_correctable: bool
+    price: Decimal | None
+    """Price of the month that readings on the form date close."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +225,8 @@ class ReadingForm:
     unbilled: list[UnbilledMonth]
     """Months closed by submitted readings but not billed yet, oldest first."""
     last_billed_period: DateRange | None
+    closing: UnbilledMonth | None
+    """The month readings on the form date close, unless it is billed already."""
 
 
 def reading_form(uow: UnitOfWork, household_id: UUID, taken_on: date) -> ReadingForm:
@@ -186,44 +234,52 @@ def reading_form(uow: UnitOfWork, household_id: UUID, taken_on: date) -> Reading
         household = require(uow.households.get(household_id), "Household", household_id)
         services = {service.id: service for service in uow.services.list_all()}
         billed = {bill.period for bill in uow.bills.list_by_household(household_id)}
+        tariff_periods = uow.tariff_periods.list_all()
+        closing = DateRange.month_before(taken_on)
         closed: set[DateRange] = set()
         meters = []
         for meter in uow.meters.list_by_household(household_id):
             readings = uow.readings.list_by_meter(meter.id)
-            # A baseline reading closes a month without consumption, there is nothing to bill.
-            closed.update(r.billing_period for r in readings if r.previous_taken_on is not None)
+            closed.update(_closed_periods(readings))
             if not meter.is_in_service_on(taken_on):
                 continue
             last = _last_reading(readings)
+            service = services[meter.service_id]
             meters.append(
                 MeterInput(
                     meter=meter,
-                    service=services[meter.service_id],
+                    service=service,
                     last_reading=last,
                     last_reading_correctable=last is not None and last.billing_period not in billed,
+                    price=_price(service, closing, tariff_periods),
                 )
             )
-        tariff_periods = uow.tariff_periods.list_all()
     unmetered = [service for service in services.values() if not service.is_metered]
-    unbilled = [
-        UnbilledMonth(
+
+    def month(period: DateRange) -> UnbilledMonth:
+        return UnbilledMonth(
             period=period,
             fixed_charges=[
-                FixedCharge(service, _monthly_amount(service, period, tariff_periods))
+                FixedCharge(service, _price(service, period, tariff_periods))
                 for service in unmetered
             ],
         )
-        for period in sorted(closed - billed, key=lambda period: period.start)
-    ]
+
     return ReadingForm(
         household=household,
         meters=meters,
-        unbilled=unbilled,
+        unbilled=[month(period) for period in sorted(closed - billed, key=lambda p: p.start)],
         last_billed_period=max(billed, key=lambda period: period.start) if billed else None,
+        closing=None if closing in billed else month(closing),
     )
 
 
-def _monthly_amount(
+def _closed_periods(readings: list[Reading]) -> set[DateRange]:
+    # A baseline reading closes a month without consumption, there is nothing to bill.
+    return {r.billing_period for r in readings if r.previous_taken_on is not None}
+
+
+def _price(
     service: Service, period: DateRange, tariff_periods: list[TariffPeriod]
 ) -> Decimal | None:
     return next(

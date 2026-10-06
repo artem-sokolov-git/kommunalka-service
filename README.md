@@ -44,11 +44,14 @@ Local runs use `./kommunalka.db`, separate from the Docker one. Override with
   transportation) it is a monthly amount.
 - A new price ("Тарифы" page or `POST /services/{id}/prices`) starts on the first
   day of a month, after the current one, and closes the current price the day
-  before. It can't start in a month that is already billed.
+  before. It can't start in a month that is already billed. The latest price can
+  be undone (`DELETE /services/{id}/prices/latest`) until a bill uses it.
 - A bill covers one calendar month: consumption × tariff for each metered
   service, plus monthly amounts of unmetered services; a ready amount from the
   supplier can be entered instead when issuing the bill (`fixed_amounts`), the
-  tariff stays as it is. Once a month is billed, its readings can't be changed.
+  tariff stays as it is. The readings page can save the readings and issue the
+  bill of the month they close at once. Once a month is billed, its readings
+  can't be changed.
 
 ## API
 
@@ -63,6 +66,7 @@ Local runs use `./kommunalka.db`, separate from the Docker one. Override with
 | `POST`, `GET` | `/services` | add a service, list |
 | `POST`, `GET` | `/services/{id}/tariffs` | set a tariff period, list |
 | `POST` | `/services/{id}/prices` | change the price from a month |
+| `DELETE` | `/services/{id}/prices/latest` | undo the latest price |
 | `POST`, `GET` | `/households/{id}/bills` | issue a bill for a month, list |
 | `GET` | `/households/{id}/bills/{year}/{month}` | get a bill |
 
@@ -85,6 +89,6 @@ src/kommunalka/
 ├── infrastructure/   SQLite repositories, unit of work, migrations
 └── presentation/
     ├── api/          JSON API: routers, schemas, error mapping
-    ├── web/          HTML pages: home, bills of a household, a bill
+    ├── web/          HTML pages: overview, readings, bills, tariffs
     └── app.py        assembles the API and the pages into one app
 ```

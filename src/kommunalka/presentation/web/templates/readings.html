@@ -1,95 +1,141 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, notices, forget_message %}
 
 {% block page_title %}Показания · {{ household.name }}{% endblock %}
 
 {% block content %}
-  <p class="crumbs">
-    <a href="{{ url_for('home_page') }}">Главная</a> →
-    <a href="{{ url_for('bills_page', household_id=household.id) }}">{{ household.name }}</a> →
-    Показания
-  </p>
-  <h1>Подать показания</h1>
-  <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
+  <div class="page-head">
+    <div>
+      <h1>Показания на {{ taken_on_title }}</h1>
+      <p class="subtitle">
+        {% if closing %}Из них сложится счёт за {{ closing_title }}.{% elif unbilled %}Счёт за {{ closing_title }} ждёт выставления ниже.{% else %}Счёт за {{ closing_title }} уже выставлен.{% endif %}
+      </p>
+    </div>
+    {% if meters %}
+    <form method="get" class="price-form">
+      <label class="field quiet">
+        Дата снятия
+        <input type="date" name="taken_on" value="{{ taken_on.isoformat() }}" max="{{ today.isoformat() }}" required onchange="this.form.submit()">
+      </label>
+      <noscript><button type="submit" class="secondary">Показать</button></noscript>
+    </form>
+    {% endif %}
+  </div>
 
-  {% if saved %}<p class="notice success">Показания сохранены.</p>{% endif %}
-  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+  {{ notices(notice, error) }}
+  {% if already_taken %}
+  <p class="notice info">Показания этого месяца уже поданы {{ already_taken }}. Следующие — с {{ next_month }}.</p>
+  {% endif %}
+
+  {% if unbilled %}
+  <section id="bills" class="card warn">
+    <h2>Ждёт выставления</h2>
+    {% for month in unbilled %}
+    <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}" class="price-form">
+      <input type="hidden" name="year" value="{{ month.period.start.year }}">
+      <input type="hidden" name="month" value="{{ month.period.start.month }}">
+      {% for charge in month.charges %}
+      <label class="field quiet">
+        {{ charge.name }} за {{ month.title }}
+        <input type="hidden" name="fixed_service_id" value="{{ charge.service_id }}">
+        <input class="amount-input" type="text" name="fixed_amount" inputmode="decimal" value="{{ charge.amount }}">
+      </label>
+      {% endfor %}
+      <button type="submit">Выставить счёт за {{ month.title }}</button>
+    </form>
+    {% endfor %}
+    <p class="hint">Сумма за транспортировку подставлена по тарифу. Если в квитанции другая, впишите её: тариф не изменится.</p>
+  </section>
+  {% endif %}
 
   {% if meters %}
-  <form method="post" action="{{ url_for('submit_readings_form', household_id=household.id) }}">
-    <label class="field">
-      Дата
-      <input type="date" name="taken_on" value="{{ taken_on.isoformat() }}" max="{{ today.isoformat() }}" required>
-    </label>
-    <table>
-      <thead>
-        <tr>
-          <th>Счётчик</th>
-          <th class="num wide-only">Последнее</th>
-          <th class="num">Новое</th>
-        </tr>
-      </thead>
-      <tbody>
+  <form method="post" action="{{ url_for('submit_readings_form', household_id=household.id) }}" data-readings>
+    <input type="hidden" name="taken_on" value="{{ taken_on.isoformat() }}">
+    <div class="grid">
       {% for meter in meters %}
-        <tr>
-          <td>
-            {{ meter.label }}
-            <div class="muted small">{{ meter.service }}</div>
-            {% if meter.last %}
-            <div class="muted small narrow-only">
-              Было {{ meter.last_value }} {{ meter.unit }} · {{ meter.last.taken_on.strftime("%d.%m") }}
-              {% if meter.correctable %}· <a href="{{ url_for('correction_page', household_id=household.id, reading_id=meter.last.id) }}">исправить</a>{% endif %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="num wide-only">
-            {% if meter.last %}
-            {{ meter.last_value }} {{ meter.unit }}
-            <div class="muted small">
-              {{ meter.last.taken_on.strftime("%d.%m.%Y") }}
-              {% if meter.correctable %}· <a href="{{ url_for('correction_page', household_id=household.id, reading_id=meter.last.id) }}">исправить</a>{% endif %}
-            </div>
-            {% else %}—{% endif %}
-          </td>
-          <td class="num">
-            <input type="hidden" name="meter_id" value="{{ meter.id }}">
-            <input class="reading" type="text" name="value" inputmode="decimal"
-                   value="{{ meter.entered }}" aria-label="{{ meter.label }}">
-          </td>
-        </tr>
+      <section class="card">
+        <div class="row">
+          {{ icon(meter.kind) }}
+          <div>
+            <h2 style="font-size: 18px">{{ meter.label }}</h2>
+            <div class="muted small">№ {{ meter.serial }} · {{ meter.service | lower }}{% if meter.unit %}, {{ meter.unit }}{% endif %}</div>
+          </div>
+        </div>
+        {% if meter.last %}
+        <div class="inset spread">
+          <span class="muted">
+            Было {{ meter.last_taken_on }}
+            {% if meter.correctable %}· <a href="{{ url_for('correction_page', household_id=household.id, reading_id=meter.last.id) }}">исправить</a>{% endif %}
+          </span>
+          <span class="amount">{{ meter.last_value }} {{ meter.unit }}</span>
+        </div>
+        {% endif %}
+        <label class="field">
+          Сейчас на счётчике
+          <input type="hidden" name="meter_id" value="{{ meter.id }}">
+          <input class="big" type="text" name="value" inputmode="decimal" autocomplete="off"
+                 value="{{ meter.entered }}" aria-describedby="hint-{{ meter.id }}"
+                 data-meter="{{ meter.id }}" data-last="{{ meter.last_raw }}" data-price="{{ meter.price_raw }}" data-unit="{{ meter.unit }}">
+        </label>
+        <p class="hint" id="hint-{{ meter.id }}" data-default="{{ 'Тариф ' ~ meter.price ~ ' грн за ' ~ meter.unit if meter.price else '' }}">
+          {% if not meter.last %}Первое показание: от него начнётся учёт.{% elif meter.price %}Тариф {{ meter.price }} грн за {{ meter.unit }}{% endif %}
+        </p>
+      </section>
       {% endfor %}
-      </tbody>
-    </table>
-    <p><button type="submit">Сохранить</button></p>
+    </div>
+
+    {% if closing %}
+    <section class="card" style="margin-top: 20px">
+      <div class="card-head">
+        <h2>Счёт за {{ closing.name }}</h2>
+        <span class="muted small">предварительно, по текущим тарифам</span>
+      </div>
+      <div class="lines">
+        {% for meter in meters if meter.last %}
+        <div class="spread">
+          <span>{{ meter.service }} <span class="muted" data-qty="{{ meter.id }}">{% if meter.price %}· × {{ meter.price }}{% endif %}</span></span>
+          <span class="amount" data-amount="{{ meter.id }}">—</span>
+        </div>
+        {% endfor %}
+        {% for charge in closing.charges %}
+        <div class="row">
+          <label class="grow" for="fixed-{{ charge.service_id }}">
+            {{ charge.name }}
+            {% if charge.tariff %}<span class="hint" style="display: block">по тарифу {{ charge.tariff }} — впишите сумму из квитанции, если она другая</span>{% endif %}
+          </label>
+          <input type="hidden" name="fixed_service_id" value="{{ charge.service_id }}">
+          <input class="amount-input" id="fixed-{{ charge.service_id }}" type="text" name="fixed_amount" inputmode="decimal" value="{{ charge.amount }}" data-fixed>
+        </div>
+        {% endfor %}
+        <div class="spread sum">
+          <span class="amount" style="font-size: 18px">Итого</span>
+          <span><strong data-total>—</strong> <span class="muted amount">грн</span></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit" name="action" value="issue">Сохранить и выставить счёт</button>
+        <button type="submit" name="action" value="save" class="link">Только сохранить показания</button>
+      </div>
+      <p class="hint">После выставления счёта показания за {{ closing_title }} больше не меняются.</p>
+    </section>
+    {% else %}
+    <div class="actions" style="margin-top: 20px">
+      <button type="submit" name="action" value="save">Сохранить показания</button>
+    </div>
+    {% endif %}
   </form>
   {% else %}
-  <p class="muted">На эту дату нет работающих счётчиков.</p>
+  <p class="empty">На эту дату нет работающих счётчиков.</p>
   {% endif %}
 
-  <h2>Счета</h2>
-  {% for month in unbilled %}
-  <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}">
-    <input type="hidden" name="year" value="{{ month.period.start.year }}">
-    <input type="hidden" name="month" value="{{ month.period.start.month }}">
-    {% for charge in month.charges %}
-    <label class="field">
-      {{ charge.name }} за {{ month.title }}
-      <input type="hidden" name="fixed_service_id" value="{{ charge.service_id }}">
-      <input class="reading" type="text" name="fixed_amount" inputmode="decimal" value="{{ charge.amount }}">
-    </label>
-    {% endfor %}
-    {% if month.charges %}<p class="muted small">Сумма подставлена по тарифу. Если в счёте поставщика другая, исправьте её: тариф не изменится.</p>{% endif %}
-    <p><button type="submit">Выставить счёт за {{ month.title }}</button></p>
-  </form>
-  {% else %}
-  <p class="muted">
-    Невыставленных счетов нет: счёт появится здесь, когда будут поданы показания за следующий месяц.
-    {% if last_billed %}<a href="{{ url_for('bill_page', household_id=household.id, year=last_billed.start.year, month=last_billed.start.month) }}">Последний счёт: {{ last_billed_title }} →</a>{% endif %}
+  {% if last_billed and not unbilled %}
+  <p class="muted small" style="margin: 0">
+    <a href="{{ url_for('bill_page', household_id=household.id, year=last_billed.start.year, month=last_billed.start.month) }}">Последний счёт: {{ last_billed_title }} →</a>
   </p>
-  {% endfor %}
-  {% if saved or error %}
-  <script>
-    // The message is shown once: drop it from the address so a reload doesn't repeat it.
-    history.replaceState(null, "", location.pathname);
-  </script>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', path='readings.js') }}?v={{ asset_version('readings.js') }}"></script>
+  {% if notice or error %}{{ forget_message() }}{% endif %}
 {% endblock %}

@@ -1,68 +1,75 @@
 {% extends "base.html" %}
-
-{% macro price_row(period) %}
-      <tr>
-        <td>
-          с {{ period.from }}{% if period.to %} по {{ period.to }}{% endif %}
-          {% if period.current %}<span class="badge">сейчас</span>{% endif %}
-        </td>
-        <td class="num">{{ period.price }}</td>
-      </tr>
-{% endmacro %}
+{% from "_macros.html" import icon, notices, forget_message %}
 
 {% block content %}
-  <p class="crumbs"><a href="{{ url_for('home_page') }}">Главная</a> → Тарифы</p>
-  <h1>Тарифы</h1>
-  <p class="subtitle">Новая цена действует с первого числа выбранного месяца. Выставленные счета не меняются.</p>
+  <div>
+    <h1>Тарифы</h1>
+    <p class="subtitle">Цены, по которым считаются счета. Меняйте цену, когда поставщик объявит новую: уже выставленные счета останутся прежними.</p>
+  </div>
 
-  {% if saved %}<p class="notice success">Цена изменена.</p>{% endif %}
-  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+  {% if notice %}
+  <div class="notice success" role="status">
+    <span class="grow"><strong>{{ notice.text }}</strong></span>
+    {% if notice.undo %}
+    <form method="post" action="{{ url_for('undo_price_form', service_id=notice.service_id) }}">
+      <button type="submit" class="secondary">Отменить</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+  {{ notices("", error) }}
 
   {% for service in services %}
-  <h2>{{ service.name }} <span class="muted small">{{ service.per }}</span></h2>
-  {# Collapse the history only when it is long enough to be worth it. #}
-  {% set shown = 2 if service.periods | length > 3 else 3 %}
-  {% set recent = service.periods[:shown] %}
-  {% set older = service.periods[shown:] %}
-  <table>
-    <thead>
-      <tr>
-        <th>Действует</th>
-        <th class="num">Цена</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for period in recent %}{{ price_row(period) }}{% else %}
-      <tr><td class="muted" colspan="2">Цены пока нет</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% if older %}
-  <details class="history">
-    <summary>Ранее: {{ older | length }}</summary>
-    <table>
-      <tbody>
-      {% for period in older %}{{ price_row(period) }}{% endfor %}
-      </tbody>
-    </table>
-  </details>
-  {% endif %}
-  <form class="actions price-form" method="post" action="{{ url_for('change_price_form', service_id=service.id) }}">
-    <label class="field">
-      Новая цена {{ service.per }}
-      <input class="reading" type="text" name="price" inputmode="decimal" required>
-    </label>
-    <label class="field">
-      С месяца
-      <input type="month" name="month" value="{{ next_month }}" required>
-    </label>
-    <button type="submit">Изменить цену</button>
-  </form>
-  {% endfor %}
+  <section class="card">
+    <div class="row">
+      {{ icon(service.kind) }}
+      <div class="grow">
+        <h2>{{ service.name }}</h2>
+        {% if service.since %}<div class="muted small">действует с {{ service.since }}</div>{% endif %}
+      </div>
+      <div>
+        {% if service.price %}
+        <div class="price">{{ service.price }} <small>грн {{ service.per }}</small></div>
+        {% if service.was %}<div class="muted small" style="text-align: right">было {{ service.was }}</div>{% endif %}
+        {% else %}
+        <div class="muted">Цены пока нет</div>
+        {% endif %}
+      </div>
+    </div>
+    {% if service.upcoming %}
+    <p class="notice info">С {{ service.upcoming.since }} — {{ service.upcoming.price }} грн {{ service.per }}.</p>
+    {% endif %}
 
-  {% if saved or error %}
-  <script>
-    history.replaceState(null, "", location.pathname);
-  </script>
-  {% endif %}
+    <details class="change">
+      <summary class="button secondary">Изменить цену</summary>
+      <form method="post" action="{{ url_for('change_price_form', service_id=service.id) }}" class="inset" style="display: flex; flex-direction: column; gap: 14px">
+        <div class="price-form">
+          <label class="field quiet">
+            Новая цена, грн {{ service.per }}
+            <input class="amount-input" type="text" name="price" inputmode="decimal" placeholder="{{ service.price }}" required>
+          </label>
+          <label class="field quiet">
+            Действует с
+            <input type="month" name="month" value="{{ next_month }}" required>
+          </label>
+          <button type="submit">Сохранить</button>
+        </div>
+        <p class="hint">Цена начнёт действовать с первого числа месяца. Счета, которые уже выставлены, не изменятся.</p>
+      </form>
+    </details>
+
+    {% if service.history %}
+    <details class="history">
+      <summary>Прежние цены · {{ service.history | length }}</summary>
+      <ul>
+        {% for period in service.history %}
+        <li><span class="muted">{{ period.range }}</span><span class="amount">{{ period.price }}</span></li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </section>
+  {% endfor %}
 {% endblock %}
+
+{% block scripts %}{% if notice or error %}{{ forget_message() }}{% endif %}{% endblock %}

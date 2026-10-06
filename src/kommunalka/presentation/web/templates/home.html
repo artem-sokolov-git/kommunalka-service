@@ -1,30 +1,30 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Домохозяйства</h1>
-  <p class="subtitle">Выберите домохозяйство, чтобы посмотреть счета.</p>
-  {% if households %}
-  <div class="cards">
-    {% for item in households %}
-    <div class="card">
-      <h3><a href="{{ url_for('bills_page', household_id=item.household.id) }}">{{ item.household.name }}</a></h3>
-      <p class="muted">{{ item.household.address }}</p>
-      <div class="last">
-        {% if item.last_bill %}
-        <span class="muted">Последний счёт: {{ item.last_bill.title }} {{ item.last_bill.year }} · всего {{ item.bill_count }}</span>
-        <span class="amount">{{ item.last_bill.total }}</span>
-        {% else %}
-        <span class="muted">Счетов пока нет</span>
-        {% endif %}
-      </div>
-      <p class="actions">
-        <a class="button" href="{{ url_for('readings_page', household_id=item.household.id) }}">Подать показания</a>
-        <a href="{{ url_for('bills_page', household_id=item.household.id) }}">Все счета</a>
-      </p>
-    </div>
-    {% endfor %}
+  <div>
+    <h1>Домохозяйства</h1>
+    <p class="subtitle">Выберите, чей обзор открыть.</p>
   </div>
+  {% for item in households %}
+  <section class="card">
+    <div>
+      <h2><a href="{{ url_for('household_page', household_id=item.household.id) }}">{{ item.household.name }}</a></h2>
+      <p class="muted" style="margin: 0">{{ item.household.address }}</p>
+    </div>
+    <div class="spread">
+      {% if item.last_bill %}
+      <span class="muted">Последний счёт: {{ item.last_bill.title }} {{ item.last_bill.year }} · всего {{ item.bill_count }}</span>
+      <span class="amount">{{ item.last_bill.total }} грн</span>
+      {% else %}
+      <span class="muted">Счетов пока нет</span>
+      {% endif %}
+    </div>
+    <div class="actions">
+      <a class="button" href="{{ url_for('readings_page', household_id=item.household.id) }}">Подать показания</a>
+      <a href="{{ url_for('bills_page', household_id=item.household.id) }}">Все счета</a>
+    </div>
+  </section>
   {% else %}
-  <p>Домохозяйств пока нет. Добавьте их через <a href="/docs">API</a>.</p>
-  {% endif %}
+  <p class="empty">Домохозяйств пока нет. Добавьте их через <a href="/docs">API</a>.</p>
+  {% endfor %}
 {% endblock %}

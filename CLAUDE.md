@@ -57,7 +57,8 @@ Things that span several files:
   for unmetered services the price is a monthly amount added to bills automatically unless
   `fixed_amounts` overrides it. A price change (`change_price` → `next_tariff_period`)
   starts on the 1st of a month after the latest price, closes the open period the day
-  before and can't touch billed months. A bill is a whole calendar month; once issued,
+  before and can't touch billed months; `undo_price_change` removes the latest price
+  and reopens the previous one unless a bill uses it. A bill is a whole calendar month; once issued,
   readings of that month can't change.
 - **Money and readings** are `Decimal`: stored as text (`DecimalString`), sent as JSON
   strings, rounded to kopecks with `ROUND_HALF_UP`. Bill line order is kept in

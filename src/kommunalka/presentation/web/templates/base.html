@@ -5,19 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block page_title %}{{ title }}{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}?v={{ asset_version('favicon.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ asset_version('style.css') }}">
 </head>
 <body>
-<header>
-  <nav>
-    <a class="brand" href="{{ url_for('home_page') }}">Коммуналка</a>
-    <a href="{{ url_for('home_page') }}">Главная</a>
-    <a href="{{ url_for('tariffs_page') }}">Тарифы</a>
-    <a href="/docs">API</a>
+<header class="topbar">
+  <nav class="topnav">
+    <a class="brand" href="{{ url_for('home_page') }}">
+      <span class="brand-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg></span>
+      Коммуналка
+    </a>
+    <div class="tabs">
+      {% if household %}
+      <a href="{{ url_for('household_page', household_id=household.id) }}"{% if section == "overview" %} aria-current="page"{% endif %}>Обзор</a>
+      <a href="{{ url_for('readings_page', household_id=household.id) }}"{% if section == "readings" %} aria-current="page"{% endif %}>Показания</a>
+      <a href="{{ url_for('bills_page', household_id=household.id) }}"{% if section == "bills" %} aria-current="page"{% endif %}>Счета</a>
+      {% endif %}
+      <a href="{{ url_for('tariffs_page') }}"{% if section == "tariffs" %} aria-current="page"{% endif %}>Тарифы</a>
+    </div>
   </nav>
 </header>
-<main>
+<main class="page">
 {% block content %}{% endblock %}
 </main>
+{% block scripts %}{% endblock %}
 </body>
 </html>

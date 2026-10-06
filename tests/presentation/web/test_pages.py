@@ -11,11 +11,13 @@ def test_renders_bill(client: TestClient, household: dict[str, Any]) -> None:
     assert response.headers["content-type"].startswith("text/html")
     page = response.text
     assert "Счёт за сентябрь 2026" in page
-    assert "Газовый: 41\u00a0739 → 41\u00a0768" in page
+    assert "41\u00a0739 → 41\u00a0768" in page
     assert "29 м³" in page
     assert "230,84" in page
     assert "Транспортировка газа" in page
     assert "531,62" in page
+    assert "на 39,80 больше, чем в августе" in page
+    assert "+39,80" in page
     assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/8"' in page
 
 
@@ -48,11 +50,20 @@ def test_api_errors_stay_json(client: TestClient, household: dict[str, Any]) -> 
     assert response.json() == {"detail": "Bill for 2026-10 not found"}
 
 
+def test_home_opens_the_only_household(client: TestClient, household: dict[str, Any]) -> None:
+    response = client.get("/")
+
+    assert response.url.path == f"/view/households/{household['id']}"
+    assert "ул. Круглая 1" in response.text
+
+
 def test_home_lists_households(client: TestClient, household: dict[str, Any]) -> None:
+    client.post("/households", json={"name": "Дача", "address": "ул. Садовая 2"})
+
     page = client.get("/").text
 
-    assert "ул. Круглая 1" in page
-    assert f'href="http://testserver/view/households/{household["id"]}/bills"' in page
+    assert "ул. Садовая 2" in page
+    assert f'href="http://testserver/view/households/{household["id"]}"' in page
     assert "Последний счёт: сентябрь 2026 · всего 2" in page
 
 
@@ -96,7 +107,8 @@ def test_home_links_to_readings(client: TestClient, household: dict[str, Any]) -
 def test_bill_page_names_neighbour_months(client: TestClient, household: dict[str, Any]) -> None:
     page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
 
-    assert "← август 2026" in page
+    assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/8"' in page
+    assert "Август</a>" in page
 
 
 def test_bill_links_have_distinct_names(client: TestClient, household: dict[str, Any]) -> None:
@@ -111,3 +123,46 @@ def test_serves_favicon(client: TestClient) -> None:
 
     assert 'href="http://testserver/static/favicon.svg?v=' in page
     assert client.get("/static/favicon.svg").status_code == 200
+
+
+def overview(client: TestClient, household: dict[str, Any]) -> str:
+    return client.get(f"/view/households/{household['id']}").text
+
+
+def test_overview_asks_for_readings(client: TestClient, household: dict[str, Any]) -> None:
+    page = overview(client, household)
+
+    assert "Пора подать показания" in page
+    assert "счёт за ноябрь" in page
+    assert "Расходы по месяцам" in page
+    assert "41\u00a0768" in page
+
+
+def test_overview_reminds_of_unbilled_month(client: TestClient, household: dict[str, Any]) -> None:
+    [meter] = client.get(f"/households/{household['id']}/meters").json()
+    client.post(
+        f"/view/households/{household['id']}/readings",
+        data={"taken_on": "2026-11-03", "meter_id": [meter["id"]], "value": ["41800"]},
+    )
+
+    assert "Осталось выставить счёт" in overview(client, household)
+
+
+def test_overview_says_month_is_done(client: TestClient, household: dict[str, Any]) -> None:
+    [meter] = client.get(f"/households/{household['id']}/meters").json()
+    for taken_on, value in (("2026-11-02", "41800"), ("2026-12-01", "41830")):
+        client.post(
+            f"/view/households/{household['id']}/readings",
+            data={
+                "taken_on": taken_on,
+                "meter_id": [meter["id"]],
+                "value": [value],
+                "action": "issue",
+            },
+        )
+
+    page = overview(client, household)
+
+    assert "На этот месяц всё сделано" in page
+    assert "Следующие показания — с 1 по 5 января" in page
+    assert "через 1\u00a0день" in page

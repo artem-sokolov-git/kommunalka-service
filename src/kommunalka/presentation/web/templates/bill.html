@@ -1,51 +1,71 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, notices, forget_message %}
 
 {% block page_title %}{{ title }} · {{ household.name }}{% endblock %}
 
 {% block content %}
-  <p class="crumbs no-print">
-    <a href="{{ url_for('home_page') }}">Главная</a> →
-    <a href="{{ url_for('bills_page', household_id=household.id) }}">{{ household.name }}</a> →
-    {{ title }}
-  </p>
-  <h1>{{ title }}</h1>
-  <p class="subtitle">{{ household.name }} · {{ household.address }}</p>
-  <table>
-    <thead>
-      <tr>
-        <th>Услуга</th>
-        <th class="readings-col">Показания</th>
-        <th class="num wide-only">Расход</th>
-        <th class="num wide-only">Тариф</th>
-        <th class="num">Сумма</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for line in lines %}
-      <tr>
-        <td>
-          {{ line.service }}
-          {% if line.quantity %}<div class="muted small narrow-only">{{ line.quantity }} × {{ line.price }}</div>{% endif %}
-        </td>
-        <td class="readings readings-col">{{ line.readings }}</td>
-        <td class="num wide-only">{{ line.quantity }}</td>
-        <td class="num wide-only">{{ line.price }}</td>
-        <td class="num">{{ line.amount }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td>Итого</td>
-        <td class="readings-col"></td>
-        <td class="wide-only"></td>
-        <td class="wide-only"></td>
-        <td class="num">{{ total }}</td>
-      </tr>
-    </tfoot>
-  </table>
-  <nav class="months no-print">
-    <span>{% if previous %}<a href="{{ url_for('bill_page', household_id=household.id, year=previous.year, month=previous.month) }}">← {{ previous_title }}</a>{% endif %}</span>
-    <span>{% if next %}<a href="{{ url_for('bill_page', household_id=household.id, year=next.year, month=next.month) }}">{{ next_title }} →</a>{% endif %}</span>
-  </nav>
+  <div class="with-aside">
+    <div class="main">
+      <nav class="months no-print" aria-label="Соседние месяцы">
+        {% if previous %}
+        <a href="{{ url_for('bill_page', household_id=household.id, year=previous.year, month=previous.month) }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>{{ previous_title | capitalize }}</a>
+        {% else %}<span></span>{% endif %}
+        {% if next %}
+        <a href="{{ url_for('bill_page', household_id=household.id, year=next.year, month=next.month) }}">{{ next_title | capitalize }}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a>
+        {% else %}<span></span>{% endif %}
+      </nav>
+
+      <div>
+        <h1>{{ heading | capitalize }}</h1>
+        <p class="subtitle">Счёт · {{ household.name }} · {{ household.address }}</p>
+      </div>
+
+      {{ notices("Счёт выставлен." if issued else "", None) }}
+
+      <section class="card">
+        <div class="row" style="justify-content: space-between">
+          <div>
+            <div class="muted amount">Итого за {{ month_title }}</div>
+            <div class="total">{{ total }} <span class="currency">грн</span></div>
+            {% if change %}<span class="pill {{ change.direction }}" style="margin-top: 6px">{{ change.text }}</span>{% endif %}
+          </div>
+          <button type="button" class="secondary no-print" onclick="print()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+            Распечатать
+          </button>
+        </div>
+      </section>
+
+      <section class="card flush">
+        {% for line in lines %}
+        <div class="bill-line">
+          {{ icon(line.kind) }}
+          <div class="grow">
+            <div class="amount">{{ line.service }}</div>
+            <div class="muted small">
+              {% if line.quantity %}{% if line.readings %}{{ line.readings }} · {% endif %}<strong style="color: var(--text)">{{ line.quantity }}</strong> × {{ line.price }}{% else %}сумма за месяц{% endif %}
+            </div>
+          </div>
+          <div class="figure">
+            <div class="amount">{{ line.amount }}</div>
+            {% if line.change %}<div class="change">{{ line.change }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </section>
+    </div>
+
+    <aside class="card" aria-label="Счета за {{ year }}">
+      <h2 style="font-size: 18px">Счета</h2>
+      <div class="month-list">
+        <div class="year-row"><span>{{ year }}</span><span>{{ year_total }}</span></div>
+        {% for item in year_bills %}
+        <a href="{{ url_for('bill_page', household_id=household.id, year=item.year, month=item.month) }}"{% if item.year == year and item.month == month %} aria-current="page"{% endif %}><span>{{ item.title | capitalize }}</span><span>{{ item.total }}</span></a>
+        {% endfor %}
+      </div>
+      <a class="small amount" href="{{ url_for('bills_page', household_id=household.id) }}">Все годы</a>
+    </aside>
+  </div>
 {% endblock %}
+
+{% block scripts %}{% if issued %}{{ forget_message() }}{% endif %}{% endblock %}
