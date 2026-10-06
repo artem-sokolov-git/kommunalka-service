@@ -6,7 +6,10 @@ from uuid import UUID
 
 from kommunalka.application._common import require
 from kommunalka.application.unit_of_work import UnitOfWork
+from kommunalka.application.use_cases.bills import add_bill
 from kommunalka.domain import (
+    Bill,
+    DateRange,
     DomainError,
     FutureReadingError,
     Meter,
@@ -38,19 +41,47 @@ def submit_readings(
 ) -> list[Reading]:
     """Add readings of several household meters at once: all of them or none."""
     with uow:
-        require(uow.households.get(household_id), "Household", household_id)
-        readings = []
-        for meter_id, value in values.items():
-            meter = require(uow.meters.get(meter_id), "Meter", meter_id)
-            if meter.household_id != household_id:
-                raise DomainError(f"Meter {meter.label!r} belongs to another household")
-            try:
-                readings.append(_add_reading(uow, meter, value, taken_on, today))
-            except FutureReadingError:
-                raise  # about the date of the whole submission, not this meter
-            except DomainError as error:
-                raise type(error)(f"{meter.label}: {error}") from error
+        readings = _add_readings(uow, household_id, taken_on, values, today)
         uow.commit()
+    return readings
+
+
+def submit_readings_and_issue_bill(
+    uow: UnitOfWork,
+    *,
+    household_id: UUID,
+    taken_on: date,
+    values: Mapping[UUID, Decimal],
+    fixed_amounts: Mapping[UUID, Decimal],
+    today: date,
+) -> Bill:
+    """Add readings and bill the month they close, all at once or nothing."""
+    with uow:
+        _add_readings(uow, household_id, taken_on, values, today)
+        bill = add_bill(uow, household_id, DateRange.month_before(taken_on), fixed_amounts)
+        uow.commit()
+    return bill
+
+
+def _add_readings(
+    uow: UnitOfWork,
+    household_id: UUID,
+    taken_on: date,
+    values: Mapping[UUID, Decimal],
+    today: date,
+) -> list[Reading]:
+    require(uow.households.get(household_id), "Household", household_id)
+    readings = []
+    for meter_id, value in values.items():
+        meter = require(uow.meters.get(meter_id), "Meter", meter_id)
+        if meter.household_id != household_id:
+            raise DomainError(f"Meter {meter.label!r} belongs to another household")
+        try:
+            readings.append(_add_reading(uow, meter, value, taken_on, today))
+        except FutureReadingError:
+            raise  # about the date of the whole submission, not this meter
+        except DomainError as error:
+            raise type(error)(f"{meter.label}: {error}") from error
     return readings
 
 

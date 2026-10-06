@@ -13,14 +13,17 @@ from kommunalka.application.use_cases import (
     remove_meter,
     submit_reading,
     submit_readings,
+    submit_readings_and_issue_bill,
 )
 from kommunalka.domain import (
     DomainError,
     DuplicateReadingError,
     Household,
     Meter,
+    MissingTariffError,
     PeriodAlreadyBilledError,
     Reading,
+    TariffPeriod,
     Unit,
 )
 
@@ -159,3 +162,44 @@ def test_rejects_meter_of_another_household(
             values={gas_meter.id: Decimal(100)},
             today=TODAY,
         )
+
+
+def test_submits_readings_and_bills_the_month_they_close(
+    uow: UnitOfWork, household: Household, gas_meter: Meter, gas_tariff: TariffPeriod
+) -> None:
+    submit(uow, gas_meter, "100", date(2026, 9, 2))
+
+    bill = submit_readings_and_issue_bill(
+        uow,
+        household_id=household.id,
+        taken_on=date(2026, 10, 2),
+        values={gas_meter.id: Decimal(110)},
+        fixed_amounts={},
+        today=TODAY,
+    )
+
+    assert (bill.period_start, bill.total) == (date(2026, 9, 1), Decimal("7.80"))
+    assert uow.bills.list_by_household(household.id) == [bill]
+
+
+def test_keeps_no_readings_if_the_bill_fails(
+    uow: UnitOfWork,
+    household: Household,
+    gas_meter: Meter,
+    gas_tariff: TariffPeriod,
+    power_meter: Meter,
+) -> None:
+    submit(uow, gas_meter, "100", date(2026, 9, 2))
+    submit(uow, power_meter, "5000", date(2026, 9, 2))
+
+    with pytest.raises(MissingTariffError):
+        submit_readings_and_issue_bill(
+            uow,
+            household_id=household.id,
+            taken_on=date(2026, 10, 2),
+            values={gas_meter.id: Decimal(110), power_meter.id: Decimal(5100)},
+            fixed_amounts={},
+            today=TODAY,
+        )
+
+    assert len(uow.readings.list_by_meter(gas_meter.id)) == 1
