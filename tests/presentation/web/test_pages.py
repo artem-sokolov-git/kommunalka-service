@@ -166,3 +166,13 @@ def test_overview_says_month_is_done(client: TestClient, household: dict[str, An
     assert "На этот месяц всё сделано" in page
     assert "Следующие показания — с 1 по 5 января" in page
     assert "через 1\u00a0день" in page
+
+
+def test_bill_page_carries_a_shareable_card(client: TestClient, household: dict[str, Any]) -> None:
+    page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
+
+    assert 'id="bill-card"' in page
+    assert '"file": "kommunalka-2026-09.png"' in page
+    assert '"total": "531,62"' in page
+    assert "data-share-bill" in page
+    assert client.get("/static/bill-card.js").status_code == 200

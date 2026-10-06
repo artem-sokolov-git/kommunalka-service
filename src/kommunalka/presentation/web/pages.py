@@ -295,6 +295,8 @@ def bill_page(
     details = queries.bill_details(uow, household_id, year, month)
     bill, previous = details.bill, details.previous_bill
     previous_amounts = {line.service_id: line.amount for line in previous.lines} if previous else {}
+    lines = [_line(line, bill, previous_amounts) for line in details.lines]
+    change = _change(bill, previous)
     return templates.TemplateResponse(
         request,
         "bill.html",
@@ -306,9 +308,28 @@ def bill_page(
             "month_title": month_name(month),
             "year": year,
             "month": month,
-            "lines": [_line(line, bill, previous_amounts) for line in details.lines],
+            "lines": lines,
             "total": money(bill.total),
-            "change": _change(bill, previous),
+            "change": change,
+            "card": {
+                "file": f"kommunalka-{year}-{month:02d}.png",
+                "household": details.household.name,
+                "month": month_name(month),
+                "year": year,
+                "total": money(bill.total),
+                "change": {"text": change.text, "direction": change.direction} if change else None,
+                "lines": [
+                    {
+                        "kind": line.kind,
+                        "name": line.service,
+                        "readings": line.readings,
+                        "quantity": line.quantity,
+                        "price": line.price,
+                        "amount": line.amount,
+                    }
+                    for line in lines
+                ],
+            },
             "previous": previous.period_start if previous else None,
             "previous_title": month_name(previous.period_start.month) if previous else "",
             "next": details.next_period,
