@@ -322,6 +322,7 @@ input[aria-invalid="true"] { border: 2px solid var(--danger); }
 }
 .month-list a:hover { background: var(--sunken); text-decoration: none; }
 .month-list a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.month-list .year-head { margin-bottom: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--line); }
 .month-list .year-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--muted); }
 
 /* Tariffs */

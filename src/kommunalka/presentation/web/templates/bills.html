@@ -13,7 +13,7 @@
   {% for year in years %}
   <section class="card">
     <div class="month-list">
-      <h2 class="spread"><span>{{ year.year }}</span><span>{{ year.total }} <span class="muted small">грн</span></span></h2>
+      <h2 class="spread year-head"><span>{{ year.year }}</span><span>{{ year.total }} <span class="muted small">грн</span></span></h2>
       {% for bill in year.bills %}
       <a href="{{ url_for('bill_page', household_id=household.id, year=bill.year, month=bill.month) }}" aria-label="{{ bill.title | capitalize }} {{ bill.year }}"><span>{{ bill.title | capitalize }}</span><span>{{ bill.total }}</span></a>
       {% endfor %}
