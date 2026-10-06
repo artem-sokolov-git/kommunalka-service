@@ -39,10 +39,11 @@ Clean layers under `src/kommunalka/`, dependencies point inward only:
 - `infrastructure/db/` — table models are `DeclarativeBase` classes used **only** as schema
   and query targets through `Connection`; repositories map rows to domain objects by hand.
   `SqlUnitOfWork` translates `IntegrityError` into `application.exceptions.ConflictError`.
-- `presentation/` — `api/` (JSON, Pydantic schemas) and `web/` (Jinja2 pages, static CSS),
+- `presentation/` — `api/` (JSON, Pydantic schemas) and `web/` (Jinja2 pages under `/view/`),
   assembled in `presentation/app.py` (entrypoint `kommunalka.presentation.app:app`).
   `presentation/errors.py::describe_error` maps errors to HTTP codes for both; `app.py`
-  renders HTML errors for `/` and `/view/...`, JSON elsewhere.
+  renders HTML errors for `/` and `/view/...`, JSON elsewhere. Today's date comes from the
+  `TodayDep` dependency (`get_today`), never from `date.today()` in handlers.
 
 Things that span several files:
 
@@ -60,6 +61,19 @@ Things that span several files:
   before and can't touch billed months; `undo_price_change` removes the latest price
   and reopens the previous one unless a bill uses it. A bill is a whole calendar month; once issued,
   readings of that month can't change.
+- **Combining use cases** in one transaction: put the work in a helper that runs inside an
+  already open unit of work (e.g. `use_cases/bills.py::add_bill`), and call it from both use
+  cases — `submit_readings_and_issue_bill` saves readings and bills the month they close
+  atomically this way.
+- **Web pages**: `web/pages.py` turns query results into plain dicts/dataclasses for the
+  templates; `formatting.py` writes Russian numbers, money, dates and plurals;
+  `messages.py` translates the English domain/application error messages by regex — a new
+  error message shown on a page needs an entry there. `base.html` builds the menu from the
+  `household` and `section` context values; `/` redirects to the overview when there is a
+  single household. Static files are linked with a content hash (`asset_version`, cached
+  per process). `static/readings.js` (live consumption and bill preview) and
+  `static/bill-card.js` (draws the bill as a PNG and shares or downloads it) only enhance
+  pages that work without them; sharing files needs HTTPS or localhost.
 - **Money and readings** are `Decimal`: stored as text (`DecimalString`), sent as JSON
   strings, rounded to kopecks with `ROUND_HALF_UP`. Bill line order is kept in
   `bill_lines.position`.
@@ -72,14 +86,19 @@ Things that span several files:
 ## Tests
 
 `tests/` mirrors `src/`. `tests/conftest.py` gives `engine` (fresh SQLite migrated with
-Alembic, so migrations are exercised) and `client` (`TestClient`). `tests/application/` runs
-use cases against an in-memory `FakeUnitOfWork` defined in its `conftest.py`.
+Alembic, so migrations are exercised) and `client` (`TestClient` with today fixed to
+2026-12-31). `tests/application/` runs use cases against an in-memory `FakeUnitOfWork`
+defined in its `conftest.py` (a new repository method needs a fake there too).
+`tests/presentation/web/conftest.py` sets up a household with a gas meter, readings for
+August–October 2026 and bills for August and September through the JSON API.
 
 ## Conventions
 
 - Commits: one-line Conventional Commits (`feat: ...`, `fix(api): ...`), no body, no trailer.
 - Ruff line length 100; `allowed-confusables` covers Cyrillic, since UI texts and data are
-  Russian. Write a non-breaking space as `" "`, never as a literal character (RUF001).
-- UI texts belong in templates, not Python. Code, identifiers and docs are in English.
+  Russian. Write a non-breaking space as `"\u00a0"`, never as a literal character (RUF001).
+- UI texts go in templates where possible; sentences built from data are composed in
+  `pages.py`, error texts in `messages.py`. Code, identifiers and docs are in English.
 - `legacy/` (one-off import of an old database) and `data/` are local only: ignored by git,
-  excluded from ty and the Docker build.
+  excluded from ty and the Docker build. `data/kommunalka.db` holds real data: check pages
+  on a copy (`KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never change it in place.

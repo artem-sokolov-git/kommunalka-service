@@ -13,9 +13,22 @@ make down    # stop
 make backup  # copy the database into data/backups/ now
 ```
 
-Bills are browsable at http://localhost:8000, the API docs are at `/docs`. Each month,
-open a household → "Подать показания", enter the readings and issue the bill for the
-previous month.
+The pages are at http://localhost:8000, the API docs at `/docs`.
+
+- **Обзор** (opens first when there is one household; all of them are at
+  `/view/households`) tells what to do this month: submit readings, issue a pending bill,
+  or nothing until the next readings. It also shows the last bill against the previous
+  month and a chart of the last 12 bills.
+- **Показания**: each month, enter the meter values; consumption and a preview of the
+  bill are shown as you type. "Сохранить и выставить счёт" saves the readings and issues
+  the bill for the previous month at once, with the gas transportation amount from the
+  supplier's receipt. A mistyped reading can be corrected until its month is billed.
+- **Счета**: bills by year; a bill shows each service with its readings and the change
+  against the previous month. "Поделиться" turns the bill into a picture for Telegram or
+  any other app; browsers share files only over HTTPS or on localhost, elsewhere the
+  picture is downloaded.
+- **Тарифы**: current prices with their history; a new price starts from a chosen month
+  and can be undone until a bill uses it.
 
 Migrations are applied on start. The database is a plain file on the host,
 `data/kommunalka.db`, kept between restarts. The `backup` service copies it into
