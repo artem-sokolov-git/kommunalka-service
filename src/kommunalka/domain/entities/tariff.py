@@ -1,10 +1,15 @@
 from collections.abc import Iterable
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import dataclass, field, replace
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from kommunalka.domain.exceptions import DomainError, OverlappingTariffPeriodError
+from kommunalka.domain.entities.bill import Bill
+from kommunalka.domain.exceptions import (
+    DomainError,
+    OverlappingTariffPeriodError,
+    PeriodAlreadyBilledError,
+)
 from kommunalka.domain.value_objects import DateRange
 
 
@@ -47,4 +52,34 @@ def ensure_no_overlap(tariff_period: TariffPeriod, existing: Iterable[TariffPeri
             raise OverlappingTariffPeriodError(
                 f"Tariff period {tariff_period.valid_from}..{tariff_period.valid_to} "
                 f"overlaps with {other.valid_from}..{other.valid_to}"
+            )
+
+
+def next_tariff_period(
+    periods: Iterable[TariffPeriod], *, service_id: UUID, price: Decimal, valid_from: date
+) -> tuple[TariffPeriod | None, TariffPeriod]:
+    """Start a new open-ended price of the service on the first day of a month.
+
+    Return the latest period, closed the day before, if it had to be closed, and the new one.
+    """
+    if valid_from.day != 1:
+        raise DomainError(f"A price changes on the first day of a month, not on {valid_from}")
+    own = [period for period in periods if period.service_id == service_id]
+    latest = max(own, key=lambda period: period.valid_from) if own else None
+    if latest is not None and valid_from <= latest.valid_from:
+        raise DomainError(f"A new price must start after {latest.valid_from}")
+    new = TariffPeriod(service_id=service_id, price=price, valid_from=valid_from)
+    if latest is None or (latest.valid_to is not None and latest.valid_to < valid_from):
+        return None, new
+    return replace(latest, valid_to=valid_from - timedelta(days=1)), new
+
+
+def ensure_price_not_billed(service_id: UUID, valid_from: date, bills: Iterable[Bill]) -> None:
+    """Raise if a bill with the service already covers a month from `valid_from` on."""
+    for bill in bills:
+        if bill.period_end >= valid_from and any(
+            line.service_id == service_id for line in bill.lines
+        ):
+            raise PeriodAlreadyBilledError(
+                f"Bill for {bill.period_start:%Y-%m} already uses the current price"
             )

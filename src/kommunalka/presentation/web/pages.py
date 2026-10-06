@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
 from urllib.parse import urlencode
@@ -14,8 +14,20 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from kommunalka.application import queries
 from kommunalka.application.exceptions import ApplicationError
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.application.use_cases import correct_reading, issue_bill, submit_readings
-from kommunalka.domain import Bill, DomainError, FixedBillLine, Household, MeteredBillLine
+from kommunalka.application.use_cases import (
+    change_price,
+    correct_reading,
+    issue_bill,
+    submit_readings,
+)
+from kommunalka.domain import (
+    Bill,
+    DateRange,
+    DomainError,
+    FixedBillLine,
+    Household,
+    MeteredBillLine,
+)
 from kommunalka.presentation.dependencies import TodayDep, UowDep
 from kommunalka.presentation.errors import describe_error
 from kommunalka.presentation.web.formatting import (
@@ -236,14 +248,25 @@ def issue_bill_form(
     uow: UowDep,
     year: Annotated[int, Form()],
     month: Annotated[int, Form(ge=1, le=12)],
+    fixed_service_id: Annotated[list[UUID] | None, Form()] = None,
+    fixed_amount: Annotated[list[str] | None, Form()] = None,
 ) -> Response:
     try:
-        issue_bill(uow, household_id=household_id, year=year, month=month, fixed_amounts={})
-    except (DomainError, ApplicationError) as error:
+        fixed_amounts = {
+            service_id: parse_number(amount)
+            for service_id, amount in zip(fixed_service_id or [], fixed_amount or [], strict=True)
+            if amount.strip()
+        }
+        issue_bill(
+            uow, household_id=household_id, year=year, month=month, fixed_amounts=fixed_amounts
+        )
+    except (DomainError, ApplicationError, InputError) as error:
+        message = (
+            str(error) if isinstance(error, InputError) else translate(describe_error(error)[1])
+        )
         # Back to the readings page, so reloading it doesn't post the form again.
         url = request.url_for("readings_page", household_id=household_id)
-        query = urlencode({"error": translate(describe_error(error)[1])})
-        return RedirectResponse(f"{url}?{query}", status_code=303)
+        return RedirectResponse(f"{url}?{urlencode({'error': message})}", status_code=303)
     url = request.url_for("bill_page", household_id=household_id, year=year, month=month)
     return RedirectResponse(str(url), status_code=303)
 
@@ -283,8 +306,19 @@ def _readings_page(
                 for item in form.meters
             ],
             "unbilled": [
-                (period, f"{month_name(period.start.month)} {period.start.year}")
-                for period in form.unbilled_periods
+                {
+                    "period": month.period,
+                    "title": _month_title(month.period.start),
+                    "charges": [
+                        {
+                            "service_id": charge.service.id,
+                            "name": charge.service.name,
+                            "amount": "" if charge.amount is None else number(charge.amount),
+                        }
+                        for charge in month.fixed_charges
+                    ],
+                }
+                for month in form.unbilled
             ],
             "last_billed": form.last_billed_period,
             "last_billed_title": _month_title(
@@ -361,3 +395,70 @@ def _correction_page(
         },
         status_code=code,
     )
+
+
+@router.get("/view/tariffs", response_class=HTMLResponse)
+def tariffs_page(
+    request: Request,
+    uow: UowDep,
+    today: TodayDep,
+    saved: bool = False,
+    error: str | None = None,
+) -> HTMLResponse:
+    next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+    return templates.TemplateResponse(
+        request,
+        "tariffs.html",
+        {
+            "title": "Тарифы",
+            "services": [
+                {
+                    "id": item.service.id,
+                    "name": item.service.name,
+                    "per": f"за {unit_label(item.service.unit)}"
+                    if item.service.unit
+                    else "в месяц",
+                    "periods": [
+                        {
+                            "from": period.valid_from.strftime("%d.%m.%Y"),
+                            "to": period.valid_to.strftime("%d.%m.%Y") if period.valid_to else "",
+                            "price": money(period.price),
+                            "current": period.covers(DateRange.month_of(today)),
+                        }
+                        for period in item.periods
+                    ],
+                }
+                for item in queries.tariff_overview(uow)
+            ],
+            "next_month": f"{next_month:%Y-%m}",
+            "saved": saved,
+            "error": error,
+        },
+    )
+
+
+@router.post("/view/tariffs/{service_id}", response_class=HTMLResponse)
+def change_price_form(
+    request: Request,
+    service_id: UUID,
+    uow: UowDep,
+    price: Annotated[str, Form()],
+    month: Annotated[str, Form()],
+) -> Response:
+    url = request.url_for("tariffs_page")
+    try:
+        valid_from = _parse_month(month)
+        change_price(uow, service_id=service_id, price=parse_number(price), valid_from=valid_from)
+    except InputError as error:
+        return RedirectResponse(f"{url}?{urlencode({'error': str(error)})}", status_code=303)
+    except (DomainError, ApplicationError) as error:
+        message = translate(describe_error(error)[1])
+        return RedirectResponse(f"{url}?{urlencode({'error': message})}", status_code=303)
+    return RedirectResponse(f"{url}?saved=1", status_code=303)
+
+
+def _parse_month(text: str) -> date:
+    try:
+        return date.fromisoformat(f"{text}-01")
+    except ValueError:
+        raise InputError(f"не месяц «{text}»") from None

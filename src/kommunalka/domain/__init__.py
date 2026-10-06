@@ -8,7 +8,12 @@ from kommunalka.domain.entities.reading import (
     readings_for_month,
 )
 from kommunalka.domain.entities.service import Service
-from kommunalka.domain.entities.tariff import TariffPeriod, ensure_no_overlap
+from kommunalka.domain.entities.tariff import (
+    TariffPeriod,
+    ensure_no_overlap,
+    ensure_price_not_billed,
+    next_tariff_period,
+)
 from kommunalka.domain.exceptions import (
     DomainError,
     DuplicateBillError,
@@ -53,10 +58,12 @@ __all__ = [
     "Unit",
     "ensure_no_overlap",
     "ensure_not_billed",
+    "ensure_price_not_billed",
     "ensure_unique_bill",
     "ensure_unique_household",
     "ensure_unique_meter",
     "ensure_unique_reading",
     "next_reading",
+    "next_tariff_period",
     "readings_for_month",
 ]

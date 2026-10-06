@@ -48,7 +48,7 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
 .crumbs a { color: var(--muted); }
 
 h1 { margin: 0 0 4px; font-size: 28px; }
-h2 { margin: 32px 0 8px; font-size: 20px; display: flex; justify-content: space-between; }
+h2 { margin: 32px 0 8px; font-size: 20px; }
 .subtitle { margin: 0 0 24px; color: var(--muted); }
 .muted { color: var(--muted); }
 
@@ -85,9 +85,33 @@ th { color: var(--muted); font-weight: 500; font-size: 14px; }
 tfoot td { border-bottom: none; font-weight: 600; font-size: 20px; }
 .months { display: flex; justify-content: space-between; margin-top: 24px; }
 
+/* Tariffs */
+
+h2 .small { font-weight: 400; }
+.badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #ffffff;
+  background: var(--accent);
+}
+.price-form { margin-top: 12px; align-items: flex-end; }
+details.history { margin-top: 4px; }
+details.history summary { padding: 8px; color: var(--muted); font-size: 14px; cursor: pointer; }
+.price-form .field { margin-bottom: 0; }
+input[type="month"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
 /* Bills of a household */
 
-h2.year { padding: 0 8px; }
+h2.year { padding: 0 8px; display: flex; justify-content: space-between; }
 
 /* Phones: wide-only columns move into narrow-only lines under the first cell */
 

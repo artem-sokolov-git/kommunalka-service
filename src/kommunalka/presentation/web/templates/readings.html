@@ -66,11 +66,19 @@
   {% endif %}
 
   <h2>Счета</h2>
-  {% for period, title in unbilled %}
+  {% for month in unbilled %}
   <form method="post" action="{{ url_for('issue_bill_form', household_id=household.id) }}">
-    <input type="hidden" name="year" value="{{ period.start.year }}">
-    <input type="hidden" name="month" value="{{ period.start.month }}">
-    <p><button type="submit">Выставить счёт за {{ title }}</button></p>
+    <input type="hidden" name="year" value="{{ month.period.start.year }}">
+    <input type="hidden" name="month" value="{{ month.period.start.month }}">
+    {% for charge in month.charges %}
+    <label class="field">
+      {{ charge.name }} за {{ month.title }}
+      <input type="hidden" name="fixed_service_id" value="{{ charge.service_id }}">
+      <input class="reading" type="text" name="fixed_amount" inputmode="decimal" value="{{ charge.amount }}">
+    </label>
+    {% endfor %}
+    {% if month.charges %}<p class="muted small">Сумма подставлена по тарифу. Если в счёте поставщика другая, исправьте её: тариф не изменится.</p>{% endif %}
+    <p><button type="submit">Выставить счёт за {{ month.title }}</button></p>
   </form>
   {% else %}
   <p class="muted">

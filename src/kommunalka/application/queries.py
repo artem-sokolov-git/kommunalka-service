@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from kommunalka.application._common import require
@@ -156,12 +157,26 @@ class MeterInput:
 
 
 @dataclass(frozen=True, slots=True)
+class FixedCharge:
+    """An unmetered service with its monthly amount by tariff, if there is one."""
+
+    service: Service
+    amount: Decimal | None
+
+
+@dataclass(frozen=True, slots=True)
+class UnbilledMonth:
+    period: DateRange
+    fixed_charges: list[FixedCharge]
+
+
+@dataclass(frozen=True, slots=True)
 class ReadingForm:
     """What a person needs to submit readings taken on a day and bill the months they close."""
 
     household: Household
     meters: list[MeterInput]
-    unbilled_periods: list[DateRange]
+    unbilled: list[UnbilledMonth]
     """Months closed by submitted readings but not billed yet, oldest first."""
     last_billed_period: DateRange | None
 
@@ -188,12 +203,55 @@ def reading_form(uow: UnitOfWork, household_id: UUID, taken_on: date) -> Reading
                     last_reading_correctable=last is not None and last.billing_period not in billed,
                 )
             )
+        tariff_periods = uow.tariff_periods.list_all()
+    unmetered = [service for service in services.values() if not service.is_metered]
+    unbilled = [
+        UnbilledMonth(
+            period=period,
+            fixed_charges=[
+                FixedCharge(service, _monthly_amount(service, period, tariff_periods))
+                for service in unmetered
+            ],
+        )
+        for period in sorted(closed - billed, key=lambda period: period.start)
+    ]
     return ReadingForm(
         household=household,
         meters=meters,
-        unbilled_periods=sorted(closed - billed, key=lambda period: period.start),
+        unbilled=unbilled,
         last_billed_period=max(billed, key=lambda period: period.start) if billed else None,
     )
+
+
+def _monthly_amount(
+    service: Service, period: DateRange, tariff_periods: list[TariffPeriod]
+) -> Decimal | None:
+    return next(
+        (t.price for t in tariff_periods if t.service_id == service.id and t.covers(period)),
+        None,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceTariffs:
+    service: Service
+    periods: list[TariffPeriod]
+    """Newest first."""
+
+
+def tariff_overview(uow: UnitOfWork) -> list[ServiceTariffs]:
+    with uow:
+        return [
+            ServiceTariffs(
+                service,
+                sorted(
+                    uow.tariff_periods.list_by_service(service.id),
+                    key=lambda period: period.valid_from,
+                    reverse=True,
+                ),
+            )
+            for service in uow.services.list_all()
+        ]
 
 
 @dataclass(frozen=True, slots=True)

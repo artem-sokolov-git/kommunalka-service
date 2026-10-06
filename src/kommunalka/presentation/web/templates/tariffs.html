@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% macro price_row(period) %}
+      <tr>
+        <td>
+          с {{ period.from }}{% if period.to %} по {{ period.to }}{% endif %}
+          {% if period.current %}<span class="badge">сейчас</span>{% endif %}
+        </td>
+        <td class="num">{{ period.price }}</td>
+      </tr>
+{% endmacro %}
+
+{% block content %}
+  <p class="crumbs"><a href="{{ url_for('home_page') }}">Главная</a> → Тарифы</p>
+  <h1>Тарифы</h1>
+  <p class="subtitle">Новая цена действует с первого числа выбранного месяца. Выставленные счета не меняются.</p>
+
+  {% if saved %}<p class="notice success">Цена изменена.</p>{% endif %}
+  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+
+  {% for service in services %}
+  <h2>{{ service.name }} <span class="muted small">{{ service.per }}</span></h2>
+  {# Collapse the history only when it is long enough to be worth it. #}
+  {% set shown = 2 if service.periods | length > 3 else 3 %}
+  {% set recent = service.periods[:shown] %}
+  {% set older = service.periods[shown:] %}
+  <table>
+    <thead>
+      <tr>
+        <th>Действует</th>
+        <th class="num">Цена</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for period in recent %}{{ price_row(period) }}{% else %}
+      <tr><td class="muted" colspan="2">Цены пока нет</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if older %}
+  <details class="history">
+    <summary>Ранее: {{ older | length }}</summary>
+    <table>
+      <tbody>
+      {% for period in older %}{{ price_row(period) }}{% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+  <form class="actions price-form" method="post" action="{{ url_for('change_price_form', service_id=service.id) }}">
+    <label class="field">
+      Новая цена {{ service.per }}
+      <input class="reading" type="text" name="price" inputmode="decimal" required>
+    </label>
+    <label class="field">
+      С месяца
+      <input type="month" name="month" value="{{ next_month }}" required>
+    </label>
+    <button type="submit">Изменить цену</button>
+  </form>
+  {% endfor %}
+
+  {% if saved or error %}
+  <script>
+    history.replaceState(null, "", location.pathname);
+  </script>
+  {% endif %}
+{% endblock %}

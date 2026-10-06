@@ -5,11 +5,16 @@ from uuid import UUID, uuid4
 import pytest
 
 from kommunalka.domain import (
+    Bill,
     DateRange,
     DomainError,
+    FixedBillLine,
     OverlappingTariffPeriodError,
+    PeriodAlreadyBilledError,
     TariffPeriod,
     ensure_no_overlap,
+    ensure_price_not_billed,
+    next_tariff_period,
 )
 
 SERVICE_ID = uuid4()
@@ -57,3 +62,56 @@ def test_open_ended_tariff_covers_any_later_month() -> None:
 
     assert tariff.covers(DateRange.month_of(date(2099, 12, 1)))
     assert not tariff.covers(DateRange.month_of(date(2024, 8, 1)))
+
+
+def test_new_price_closes_the_open_period() -> None:
+    current = TariffPeriod(
+        service_id=SERVICE_ID, price=Decimal("7.96"), valid_from=date(2024, 9, 1)
+    )
+
+    closed, new = next_tariff_period(
+        [current], service_id=SERVICE_ID, price=Decimal("8.50"), valid_from=date(2027, 1, 1)
+    )
+
+    assert closed is not None
+    assert closed.id == current.id
+    assert closed.valid_to == date(2026, 12, 31)
+    assert (new.price, new.valid_from, new.valid_to) == (Decimal("8.50"), date(2027, 1, 1), None)
+
+
+def test_first_price_closes_nothing() -> None:
+    closed, new = next_tariff_period(
+        [], service_id=SERVICE_ID, price=Decimal(1), valid_from=date(2027, 1, 1)
+    )
+
+    assert closed is None
+    assert new.valid_from == date(2027, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("valid_from", "message"),
+    [(date(2027, 1, 15), "first day of a month"), (date(2024, 9, 1), "must start after")],
+)
+def test_new_price_rules(valid_from: date, message: str) -> None:
+    current = TariffPeriod(
+        service_id=SERVICE_ID, price=Decimal("7.96"), valid_from=date(2024, 9, 1)
+    )
+
+    with pytest.raises(DomainError, match=message):
+        next_tariff_period(
+            [current], service_id=SERVICE_ID, price=Decimal(1), valid_from=valid_from
+        )
+
+
+def test_price_of_a_billed_month_cannot_change() -> None:
+    september = Bill(
+        household_id=uuid4(),
+        period_start=date(2026, 9, 1),
+        period_end=date(2026, 9, 30),
+        lines=(FixedBillLine(service_id=SERVICE_ID, amount=Decimal("300.78")),),
+    )
+
+    ensure_price_not_billed(SERVICE_ID, date(2026, 10, 1), [september])
+    ensure_price_not_billed(uuid4(), date(2026, 9, 1), [september])
+    with pytest.raises(PeriodAlreadyBilledError):
+        ensure_price_not_billed(SERVICE_ID, date(2026, 9, 1), [september])

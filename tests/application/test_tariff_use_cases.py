@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.application.use_cases import set_tariff
+from kommunalka.application.use_cases import change_price, set_tariff
 from kommunalka.domain import OverlappingTariffPeriodError, Service, TariffPeriod
 
 
@@ -40,3 +40,17 @@ def test_open_ended_tariff_blocks_later_periods(uow: UnitOfWork, gas: Service) -
 
     with pytest.raises(OverlappingTariffPeriodError):
         set_tariff(uow, service_id=gas.id, price=Decimal(2), valid_from=date(2030, 1, 1))
+
+
+def test_change_price_closes_current_period(uow: UnitOfWork, transport: Service) -> None:
+    old = set_tariff(
+        uow, service_id=transport.id, price=Decimal("300.78"), valid_from=date(2025, 12, 1)
+    )
+
+    new = change_price(
+        uow, service_id=transport.id, price=Decimal("320"), valid_from=date(2027, 1, 1)
+    )
+
+    periods = {period.id: period for period in uow.tariff_periods.list_by_service(transport.id)}
+    assert periods[old.id].valid_to == date(2026, 12, 31)
+    assert periods[new.id].valid_to is None

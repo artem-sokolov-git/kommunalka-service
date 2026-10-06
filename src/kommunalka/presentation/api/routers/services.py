@@ -3,8 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, status
 
 from kommunalka.application import queries
-from kommunalka.application.use_cases import add_service, set_tariff
+from kommunalka.application.use_cases import add_service, change_price, set_tariff
 from kommunalka.presentation.api.schemas import (
+    PriceChangeIn,
     ServiceIn,
     ServiceOut,
     TariffPeriodIn,
@@ -33,6 +34,15 @@ def create_tariff_period(service_id: UUID, body: TariffPeriodIn, uow: UowDep) ->
         price=body.price,
         valid_from=body.valid_from,
         valid_to=body.valid_to,
+    )
+    return TariffPeriodOut.model_validate(tariff_period)
+
+
+@router.post("/{service_id}/prices", status_code=status.HTTP_201_CREATED)
+def create_price_change(service_id: UUID, body: PriceChangeIn, uow: UowDep) -> TariffPeriodOut:
+    """Start a new price on the first day of a month, closing the current one the day before."""
+    tariff_period = change_price(
+        uow, service_id=service_id, price=body.price, valid_from=body.valid_from
     )
     return TariffPeriodOut.model_validate(tariff_period)
 

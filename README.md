@@ -42,9 +42,13 @@ Local runs use `./kommunalka.db`, separate from the Docker one. Override with
 - A tariff is valid from `valid_from` to `valid_to`, or open-ended without it.
   For a metered service the price is per unit, for an unmetered one (e.g. gas
   transportation) it is a monthly amount.
+- A new price ("Тарифы" page or `POST /services/{id}/prices`) starts on the first
+  day of a month, after the current one, and closes the current price the day
+  before. It can't start in a month that is already billed.
 - A bill covers one calendar month: consumption × tariff for each metered
-  service, plus monthly amounts of unmetered services (`fixed_amounts` overrides
-  them). Once a month is billed, its readings can't be changed.
+  service, plus monthly amounts of unmetered services; a ready amount from the
+  supplier can be entered instead when issuing the bill (`fixed_amounts`), the
+  tariff stays as it is. Once a month is billed, its readings can't be changed.
 
 ## API
 
@@ -57,7 +61,8 @@ Local runs use `./kommunalka.db`, separate from the Docker one. Override with
 | `POST`, `GET` | `/meters/{id}/readings` | submit a reading, list |
 | `PATCH` | `/readings/{id}` | correct a reading of an unbilled month |
 | `POST`, `GET` | `/services` | add a service, list |
-| `POST`, `GET` | `/services/{id}/tariffs` | set a tariff, list |
+| `POST`, `GET` | `/services/{id}/tariffs` | set a tariff period, list |
+| `POST` | `/services/{id}/prices` | change the price from a month |
 | `POST`, `GET` | `/households/{id}/bills` | issue a bill for a month, list |
 | `GET` | `/households/{id}/bills/{year}/{month}` | get a bill |
 

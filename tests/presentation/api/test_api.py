@@ -180,3 +180,18 @@ def test_rejects_invalid_month(client: TestClient, household: dict[str, Any], mo
         {"year": 2026, "month": month},
         expected=422,
     )
+
+
+def test_changes_price(client: TestClient, gas: dict[str, Any]) -> None:
+    post(client, f"/services/{gas['id']}/tariffs", {"price": "0.78", "valid_from": "2026-01-01"})
+
+    new = post(
+        client, f"/services/{gas['id']}/prices", {"price": "0.85", "valid_from": "2027-01-01"}
+    )
+
+    assert new["valid_to"] is None
+    periods = client.get(f"/services/{gas['id']}/tariffs").json()
+    assert [(p["valid_from"], p["valid_to"]) for p in periods] == [
+        ("2026-01-01", "2026-12-31"),
+        ("2027-01-01", None),
+    ]

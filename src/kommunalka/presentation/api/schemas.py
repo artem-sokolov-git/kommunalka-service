@@ -83,6 +83,11 @@ class TariffPeriodIn(Schema):
     valid_to: date | None = None
 
 
+class PriceChangeIn(Schema):
+    price: Decimal
+    valid_from: date
+
+
 class TariffPeriodOut(Schema):
     id: UUID
     service_id: UUID

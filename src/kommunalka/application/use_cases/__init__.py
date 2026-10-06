@@ -7,10 +7,11 @@ from kommunalka.application.use_cases.readings import (
     submit_readings,
 )
 from kommunalka.application.use_cases.services import add_service
-from kommunalka.application.use_cases.tariffs import set_tariff
+from kommunalka.application.use_cases.tariffs import change_price, set_tariff
 
 __all__ = [
     "add_service",
+    "change_price",
     "correct_reading",
     "install_meter",
     "issue_bill",

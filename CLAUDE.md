@@ -55,8 +55,10 @@ Things that span several files:
   one reading per meter and month (`readings.billing_month` column enforces it); the first
   reading is a baseline. Tariffs are `TariffPeriod`s with optional `valid_to` (open-ended);
   for unmetered services the price is a monthly amount added to bills automatically unless
-  `fixed_amounts` overrides it. A bill is a whole calendar month; once issued, readings of
-  that month can't change.
+  `fixed_amounts` overrides it. A price change (`change_price` → `next_tariff_period`)
+  starts on the 1st of a month after the latest price, closes the open period the day
+  before and can't touch billed months. A bill is a whole calendar month; once issued,
+  readings of that month can't change.
 - **Money and readings** are `Decimal`: stored as text (`DecimalString`), sent as JSON
   strings, rounded to kopecks with `ROUND_HALF_UP`. Bill line order is kept in
   `bill_lines.position`.
