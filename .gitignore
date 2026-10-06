@@ -13,3 +13,6 @@ wheels/
 *.db
 legacy
 data
+
+# Playwright
+.playwright-mcp
