@@ -15,6 +15,7 @@ make dev                              # migrate ./kommunalka.db, run Granian wit
 make migration name=<slug>            # alembic revision --autogenerate
 make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_PROJECT_ID)
 make backup                           # on the host: data/backups/ + dump pushed to git (via bws)
+make backups / make restore            # list dumps in git; restore the latest (args="--revision X")
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
 ```
 

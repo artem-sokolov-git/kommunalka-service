@@ -61,7 +61,7 @@ def push_dump(
     if not database.is_file():
         raise BackupError(f"{database} not found")
     if not (clone / ".git").is_dir():
-        _git(None, token, "clone", remote, str(clone))
+        run_git(None, token, "clone", remote, str(clone))
     source = sqlite3.connect(database)
     copy = sqlite3.connect(":memory:")
     try:
@@ -70,16 +70,18 @@ def push_dump(
     finally:
         copy.close()
         source.close()
-    _git(clone, token, "add", DUMP)
-    changed = _git(clone, token, "diff", "--cached", "--quiet", check=False).returncode != 0
+    run_git(clone, token, "add", DUMP)
+    changed = run_git(clone, token, "diff", "--cached", "--quiet", check=False).returncode != 0
     if changed:
-        _git(clone, token, "commit", "--quiet", "-m", f"Backup {datetime.now(UTC):%Y-%m-%d %H:%M}Z")
+        run_git(
+            clone, token, "commit", "--quiet", "-m", f"Backup {datetime.now(UTC):%Y-%m-%d %H:%M}Z"
+        )
     # Pushed every time, so a commit left by a failed push goes out with the next run.
-    _git(clone, token, "push", "--quiet", "origin", f"HEAD:{branch}")
+    run_git(clone, token, "push", "--quiet", "origin", f"HEAD:{branch}")
     return changed
 
 
-def _git(
+def run_git(
     clone: Path | None, token: str | None, *args: str, check: bool = True
 ) -> subprocess.CompletedProcess[str]:
     options = [

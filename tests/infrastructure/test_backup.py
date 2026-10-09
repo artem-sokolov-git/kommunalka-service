@@ -8,17 +8,6 @@ from kommunalka.config import get_settings
 from kommunalka.infrastructure.db.backup import BackupError, backup, main, push_dump
 
 
-@pytest.fixture
-def database(tmp_path: Path) -> Path:
-    path = tmp_path / "kommunalka.db"
-    connection = sqlite3.connect(path)
-    connection.execute("CREATE TABLE readings (value TEXT)")
-    connection.execute("INSERT INTO readings VALUES ('41768')")
-    connection.commit()
-    connection.close()
-    return path
-
-
 def test_copies_database(database: Path, tmp_path: Path) -> None:
     copy = backup(database, tmp_path / "backups", keep=5)
 
@@ -47,13 +36,6 @@ def test_missing_database_is_an_error(tmp_path: Path) -> None:
 
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
-
-
-@pytest.fixture
-def remote(tmp_path: Path) -> Path:
-    path = tmp_path / "backups.git"
-    git("init", "--quiet", "--bare", str(path))
-    return path
 
 
 def test_pushes_a_dump_to_git(database: Path, remote: Path, tmp_path: Path) -> None:

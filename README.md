@@ -58,8 +58,21 @@ repository history is the history of backups.
    (`github_pat_...`).
 4. `make up`; `docker compose logs backup` shows `...kommunalka-backups.git: pushed`.
 
-To restore from the repository: `make down`, move `data/kommunalka.db` aside, then
-`sqlite3 data/kommunalka.db < kommunalka.sql` with the dump from a clone, and `make up`.
+### Restore
+
+`make restore` stops the stack, restores `data/kommunalka.db` from the latest dump in the
+backup repository and starts the stack again; migrations bring an older dump up to date.
+The new database is built and checked first, the replaced one is kept as
+`data/kommunalka-before-restore-<time>.db`.
+
+```sh
+make backups                                    # list backups in GitHub
+make restore args="--revision 1a2b3c4"          # an older backup
+make restore args="--file data/backups/kommunalka-20261009-145619Z.db"   # a local copy
+```
+
+On a new machine: install Docker, uv and `bws`, clone this repository, put `BWS_PROJECT_ID`
+into `.env` and run `make restore`.
 
 ## Develop
 

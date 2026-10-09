@@ -49,6 +49,16 @@ down: ## Stop the stack (the database in ./data is kept)
 logs: ## Follow API logs
 	@docker compose logs -f api
 
+# Backup scripts run on the host against the stack's database in ./data.
+HOST_DB := KOMMUNALKA_DATABASE_URL=sqlite:///data/kommunalka.db bws run --project-id $(BWS_PROJECT_ID) --
+
 backup: bws-check ## Back up the database into data/backups/ and push a dump to GitHub now
-	@KOMMUNALKA_DATABASE_URL=sqlite:///data/kommunalka.db \
-		bws run --project-id $(BWS_PROJECT_ID) -- uv run python -m kommunalka.infrastructure.db.backup
+	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.backup
+
+backups: bws-check ## List backups in GitHub
+	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.restore --list
+
+restore: bws-check ## Restore the database from GitHub and start the stack: make restore [args="--revision <commit>"]
+	@docker compose down
+	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.restore $(args)
+	@$(MAKE) --no-print-directory up
