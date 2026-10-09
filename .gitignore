@@ -14,5 +14,8 @@ wheels/
 legacy
 data
 
+# Secrets
+.env
+
 # Playwright
 .playwright-mcp

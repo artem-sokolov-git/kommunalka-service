@@ -23,6 +23,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-slim
 
+# git pushes database dumps to a backup repository, see the backup service.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system app \
     && useradd --system --gid app --no-create-home app \
     && mkdir /data \
@@ -36,7 +41,9 @@ COPY pyproject.toml alembic.ini ./
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    KOMMUNALKA_DATABASE_URL=sqlite:////data/kommunalka.db
+    KOMMUNALKA_DATABASE_URL=sqlite:////data/kommunalka.db \
+    KOMMUNALKA_BACKUP_DIR=/data/backups \
+    KOMMUNALKA_DB_BACKUP_REPO_DIR=/data/backup-repo
 
 USER app
 VOLUME /data

@@ -31,14 +31,13 @@ services:
 
   backup:
     <<: *app
-    # A copy on start, then daily; the 30 newest are kept in ./data/backups.
-    command:
-      - python
-      - -m
-      - kommunalka.infrastructure.db.backup
-      - /data/kommunalka.db
-      - /data/backups
-      - --every=86400
+    # A copy on start, then daily; the 30 newest are kept in ./data/backups. With
+    # KOMMUNALKA_DB_BACKUP_REPO_URL set (a bws secret, see README), a dump is also pushed there.
+    command: ["python", "-m", "kommunalka.infrastructure.db.backup"]
+    environment:
+      KOMMUNALKA_BACKUP_INTERVAL: 86400
+      KOMMUNALKA_DB_BACKUP_REPO_URL: ${KOMMUNALKA_DB_BACKUP_REPO_URL:-}
+      KOMMUNALKA_BACKUP_GITHUB_TOKEN: ${KOMMUNALKA_BACKUP_GITHUB_TOKEN:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -13,15 +13,17 @@ make check                            # ruff check, ruff format --check, ty chec
 make fmt                              # ruff format + ruff check --fix
 make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
-make up / make down / make logs       # Docker stack (migrate service, then api)
-make backup                           # online copy of data/kommunalka.db into data/backups/
+make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_PROJECT_ID)
+make backup                           # on the host: data/backups/ + dump pushed to git (via bws)
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
 ```
 
 Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.toml`
-(`alembic.ini` only configures logging). The database URL comes from `KOMMUNALKA_DATABASE_URL`
-(default `sqlite:///kommunalka.db`); in Docker it is `data/kommunalka.db` on the host via a
-bind mount.
+(`alembic.ini` only configures logging). Settings live in `src/kommunalka/config.py`
+(`Settings`, pydantic-settings): `KOMMUNALKA_`-prefixed environment variables or `.env`,
+read through `get_settings()` only at the edges (app factory, migrations `env.py`, backup
+CLI). The database URL is `KOMMUNALKA_DATABASE_URL` (default `sqlite:///kommunalka.db`); in
+Docker it is `data/kommunalka.db` on the host via a bind mount.
 
 ## Architecture
 
@@ -43,7 +45,8 @@ Clean layers under `src/kommunalka/`, dependencies point inward only:
   assembled in `presentation/app.py` (entrypoint `kommunalka.presentation.app:app`).
   `presentation/errors.py::describe_error` maps errors to HTTP codes for both; `app.py`
   renders HTML errors for `/` and `/view/...`, JSON elsewhere. Today's date comes from the
-  `TodayDep` dependency (`get_today`), never from `date.today()` in handlers.
+  `TodayDep` dependency (`get_today`, in the `timezone` setting, `Europe/Kyiv` by default:
+  containers run in UTC), never from `date.today()` in handlers.
 
 Things that span several files:
 
