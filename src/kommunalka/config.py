@@ -19,9 +19,9 @@ class Settings(BaseSettings):
     backup_interval: int | None = None
 
     db_backup_repo_url: str | None = None
-    db_backup_repo_dir: Path = Path("data/backup-repo")
     db_backup_branch: str = "main"
     backup_github_token: SecretStr | None = None
+    github_api_url: str = "https://api.github.com"
 
     @field_validator("timezone")
     @classmethod

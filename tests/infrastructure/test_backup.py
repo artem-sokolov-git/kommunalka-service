@@ -1,11 +1,12 @@
 import sqlite3
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from kommunalka.config import get_settings
 from kommunalka.infrastructure.db.backup import BackupError, backup, main, push_dump
+from kommunalka.infrastructure.db.github import GitHubError, GitHubFile, repo_name
+from tests.infrastructure.conftest import FakeGitHub
 
 
 def test_copies_database(database: Path, tmp_path: Path) -> None:
@@ -34,43 +35,56 @@ def test_missing_database_is_an_error(tmp_path: Path) -> None:
     assert not (tmp_path / "missing.db").exists()
 
 
-def git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
-
-
-def test_pushes_a_dump_to_git(database: Path, remote: Path, tmp_path: Path) -> None:
-    assert push_dump(database, tmp_path / "clone", str(remote))
-
-    dump = git("--git-dir", str(remote), "show", "main:kommunalka.sql")
-    assert "INSERT INTO \"readings\" VALUES('41768');" in dump
-
-
-def test_commits_only_changes(database: Path, remote: Path, tmp_path: Path) -> None:
-    clone = tmp_path / "clone"
-    push_dump(database, clone, str(remote))
-
-    assert not push_dump(database, clone, str(remote))
+def add_reading(database: Path, value: str) -> None:
     connection = sqlite3.connect(database)
-    connection.execute("INSERT INTO readings VALUES ('41800')")
+    connection.execute("INSERT INTO readings VALUES (?)", (value,))
     connection.commit()
     connection.close()
-    assert push_dump(database, clone, str(remote))
-
-    assert len(git("--git-dir", str(remote), "log", "--oneline", "main").splitlines()) == 2
 
 
-def test_unreachable_remote_is_an_error(database: Path, tmp_path: Path) -> None:
-    with pytest.raises(BackupError, match="git clone failed"):
-        push_dump(database, tmp_path / "clone", str(tmp_path / "missing.git"))
+def test_pushes_a_dump_to_github(
+    database: Path, github: FakeGitHub, backup_file: GitHubFile
+) -> None:
+    assert push_dump(database, backup_file)
+
+    [commit] = github.commits
+    assert "INSERT INTO \"readings\" VALUES('41768');" in commit["files"]["kommunalka.sql"]
+    assert commit["message"].startswith("Backup ")
+
+
+def test_commits_only_changes(database: Path, github: FakeGitHub, backup_file: GitHubFile) -> None:
+    push_dump(database, backup_file)
+
+    assert not push_dump(database, backup_file)
+    add_reading(database, "41800")
+    assert push_dump(database, backup_file)
+
+    assert len(github.commits) == 2
+
+
+def test_rejected_token_is_an_error(database: Path, github: FakeGitHub) -> None:
+    file = GitHubFile("owner/backups", "kommunalka.sql", token="wrong", api_url=github.url)
+
+    with pytest.raises(GitHubError, match="401 Bad credentials"):
+        push_dump(database, file)
+
+
+@pytest.mark.parametrize(
+    "repo",
+    ["owner/backups", "https://github.com/owner/backups", "https://github.com/owner/backups.git"],
+)
+def test_reads_repository_name(repo: str) -> None:
+    assert repo_name(repo) == "owner/backups"
 
 
 def test_cli_takes_everything_from_settings(
-    database: Path, remote: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    database: Path, github: FakeGitHub, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("KOMMUNALKA_DATABASE_URL", f"sqlite:///{database}")
     monkeypatch.setenv("KOMMUNALKA_BACKUP_DIR", str(tmp_path / "copies"))
-    monkeypatch.setenv("KOMMUNALKA_DB_BACKUP_REPO_URL", str(remote))
-    monkeypatch.setenv("KOMMUNALKA_DB_BACKUP_REPO_DIR", str(tmp_path / "clone"))
+    monkeypatch.setenv("KOMMUNALKA_DB_BACKUP_REPO_URL", "owner/backups")
+    monkeypatch.setenv("KOMMUNALKA_BACKUP_GITHUB_TOKEN", FakeGitHub.TOKEN)
+    monkeypatch.setenv("KOMMUNALKA_GITHUB_API_URL", github.url)
     monkeypatch.setattr("sys.argv", ["backup"])
     get_settings.cache_clear()
     try:
@@ -79,4 +93,4 @@ def test_cli_takes_everything_from_settings(
         get_settings.cache_clear()
 
     assert len(list((tmp_path / "copies").glob("kommunalka-*.db"))) == 1
-    assert "41768" in git("--git-dir", str(remote), "show", "main:kommunalka.sql")
+    assert "41768" in github.commits[-1]["files"]["kommunalka.sql"]

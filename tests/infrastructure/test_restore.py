@@ -1,16 +1,17 @@
 import sqlite3
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from kommunalka.infrastructure.db.backup import BackupError, backup, push_dump
+from kommunalka.infrastructure.db.github import GitHubFile
 from kommunalka.infrastructure.db.restore import (
     fetch_dump,
     list_backups,
     restore_copy,
     restore_dump,
 )
+from tests.infrastructure.conftest import FakeGitHub
 
 
 def values(database: Path) -> list[str]:
@@ -28,30 +29,28 @@ def add_reading(database: Path, value: str) -> None:
     connection.close()
 
 
-def test_restores_latest_dump_from_git(database: Path, remote: Path, tmp_path: Path) -> None:
-    push_dump(database, tmp_path / "clone", str(remote))
+def test_restores_latest_dump_from_github(
+    database: Path, backup_file: GitHubFile, tmp_path: Path
+) -> None:
+    push_dump(database, backup_file)
     add_reading(database, "41800")
-    push_dump(database, tmp_path / "clone", str(remote))
+    push_dump(database, backup_file)
     target = tmp_path / "new" / "kommunalka.db"
 
-    dump, commit = fetch_dump(tmp_path / "fresh-clone", str(remote))
-    restore_dump(dump, target)
+    restore_dump(fetch_dump(backup_file), target)
 
     assert values(target) == ["41768", "41800"]
-    assert "Backup" in commit
 
 
-def test_restores_an_older_revision(database: Path, remote: Path, tmp_path: Path) -> None:
-    clone = tmp_path / "clone"
-    push_dump(database, clone, str(remote))
-    first = subprocess.run(
-        ["git", "-C", str(clone), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-    ).stdout.strip()
+def test_restores_an_older_revision(
+    database: Path, github: FakeGitHub, backup_file: GitHubFile
+) -> None:
+    push_dump(database, backup_file)
+    first = github.commits[0]["sha"][:7]
     add_reading(database, "41800")
-    push_dump(database, clone, str(remote))
+    push_dump(database, backup_file)
 
-    dump, _ = fetch_dump(clone, str(remote), revision=first)
-    restore_dump(dump, database)
+    restore_dump(fetch_dump(backup_file, first), database)
 
     assert values(database) == ["41768"]
 
@@ -76,14 +75,17 @@ def test_broken_dump_leaves_the_database_alone(database: Path) -> None:
     assert not database.with_name("kommunalka.db.restoring").exists()
 
 
-def test_empty_repository_has_nothing_to_restore(remote: Path, tmp_path: Path) -> None:
-    with pytest.raises(BackupError, match="No backups"):
-        fetch_dump(tmp_path / "clone", str(remote))
+def test_empty_repository_has_nothing_to_restore(backup_file: GitHubFile) -> None:
+    with pytest.raises(BackupError, match=r"No kommunalka\.sql in owner/backups yet"):
+        fetch_dump(backup_file)
 
 
-def test_lists_backups(database: Path, remote: Path, tmp_path: Path) -> None:
-    push_dump(database, tmp_path / "clone", str(remote))
+def test_lists_backups_newest_first(database: Path, backup_file: GitHubFile) -> None:
+    push_dump(database, backup_file)
     add_reading(database, "41800")
-    push_dump(database, tmp_path / "clone", str(remote))
+    push_dump(database, backup_file)
 
-    assert len(list_backups(tmp_path / "other-clone", str(remote)).splitlines()) == 2
+    lines = list_backups(backup_file).splitlines()
+
+    assert len(lines) == 2
+    assert lines[0].startswith("0000002  2026-10-02T00:00:00Z  Backup ")
