@@ -9,13 +9,13 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, pool
 
-from kommunalka.infrastructure.db.engine import database_url
+from kommunalka.config import get_settings
 from kommunalka.infrastructure.db.models import Base, DecimalString
 
 config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
-url = config.get_main_option("sqlalchemy.url") or database_url()
+url = config.get_main_option("sqlalchemy.url") or get_settings().database_url
 
 
 def render_item(type_: str, obj: Any, autogen_context: AutogenContext) -> str | Literal[False]:
