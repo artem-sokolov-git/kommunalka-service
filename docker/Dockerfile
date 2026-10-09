@@ -23,11 +23,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-slim
 
-# git pushes database dumps to a backup repository, see the backup service.
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends git \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN groupadd --system app \
     && useradd --system --gid app --no-create-home app \
     && mkdir /data \
@@ -38,16 +33,14 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Alembic reads its config from the working directory.
 COPY pyproject.toml alembic.ini ./
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
-    KOMMUNALKA_DATABASE_URL=sqlite:////data/kommunalka.db \
-    KOMMUNALKA_BACKUP_DIR=/data/backups \
-    KOMMUNALKA_DB_BACKUP_REPO_DIR=/data/backup-repo
+    PYTHONUNBUFFERED=1
 
 USER app
 VOLUME /data
 EXPOSE 8000
 
-CMD ["granian", "--interface", "asgi", "--host", "0.0.0.0", "--port", "8000", \
-     "kommunalka.presentation.app:app"]
+ENTRYPOINT ["entrypoint"]
+CMD ["serve"]

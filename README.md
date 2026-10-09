@@ -10,7 +10,7 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
 ```sh
 make up      # build and start in Docker: http://localhost:8000
 make down    # stop
-make backup  # back up now: data/backups/ and a dump pushed to GitHub
+make backup  # back up now: a copy in the volume and a dump pushed to GitHub
 ```
 
 `make up` takes secrets from a [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
@@ -35,40 +35,43 @@ The pages are at http://localhost:8000, the API docs at `/docs`.
 - **Тарифы**: current prices with their history; a new price starts from a chosen month
   and can be undone until a bill uses it.
 
-Migrations are applied on start. The database is a plain file on the host,
-`data/kommunalka.db`, kept between restarts. The `backup` service copies it into
-`data/backups/` on start and daily, keeping the 30 newest. To restore a backup: `make down`,
-copy it over `data/kommunalka.db`, `make up`. Set `KOMMUNALKA_PORT` if 8000 is busy.
+Migrations are applied on start. The database lives in the Docker volume `data`
+(`/data/kommunalka.db` in the containers), not on the host, and is kept between restarts;
+`docker compose down -v` would delete it. The `backup` service copies it into
+`/data/backups/` of the same volume on start and daily, keeping the 30 newest. Set
+`KOMMUNALKA_PORT` if 8000 is busy.
 
 Settings are `KOMMUNALKA_`-prefixed environment variables (or `.env`), see
 `src/kommunalka/config.py`: the database URL, `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides
-which day it is), and the backup directory, number of copies, interval and git repository.
+which day it is), and the backup directory, number of copies, interval and GitHub repository.
 
 ### Backups in a private GitHub repository
 
-The `backup` service can also push a text dump of the database, `kommunalka.sql`, to a
-git repository on each run; a new commit appears only when the data changed, so the
-repository history is the history of backups.
+The `backup` service can also commit a text dump of the database, `kommunalka.sql`, to a
+GitHub repository on each run, straight through the GitHub API (no clone on disk); a new
+commit appears only when the data changed, so the history of the file is the history of
+backups.
 
 1. Create an empty private repository: `gh repo create kommunalka-backups --private`.
 2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
    with access to that repository only and the "Contents: Read and write" permission.
 3. Add both to the Bitwarden project as secrets `KOMMUNALKA_DB_BACKUP_REPO_URL`
-   (`https://github.com/<you>/kommunalka-backups.git`) and `KOMMUNALKA_BACKUP_GITHUB_TOKEN`
+   (`https://github.com/<you>/kommunalka-backups` or `<you>/kommunalka-backups`) and
+   `KOMMUNALKA_BACKUP_GITHUB_TOKEN`
    (`github_pat_...`).
-4. `make up`; `docker compose logs backup` shows `...kommunalka-backups.git: pushed`.
+4. `make up`; `make logs service=backup` shows `<you>/kommunalka-backups: pushed`.
 
 ### Restore
 
-`make restore` stops the stack, restores `data/kommunalka.db` from the latest dump in the
-backup repository and starts the stack again; migrations bring an older dump up to date.
-The new database is built and checked first, the replaced one is kept as
-`data/kommunalka-before-restore-<time>.db`.
+`make restore` stops the stack, restores the database from the latest dump in the backup
+repository (in a one-off container of the `backup` service) and starts the stack again;
+migrations bring an older dump up to date. The new database is built and checked first, the
+replaced one is kept in the volume as `/data/kommunalka-before-restore-<time>.db`.
 
 ```sh
 make backups                                    # list backups in GitHub
 make restore args="--revision 1a2b3c4"          # an older backup
-make restore args="--file data/backups/kommunalka-20261009-145619Z.db"   # a local copy
+make restore args="--file /data/backups/kommunalka-20261009-145619Z.db"  # a copy in the volume
 ```
 
 On a new machine: install Docker, uv and `bws`, clone this repository, put `BWS_PROJECT_ID`
@@ -143,4 +146,5 @@ src/kommunalka/
     ├── api/          JSON API: routers, schemas, error mapping
     ├── web/          HTML pages: overview, readings, bills, tariffs
     └── app.py        assembles the API and the pages into one app
+docker/               Dockerfile, compose.yaml, entrypoint.sh (run through make)
 ```

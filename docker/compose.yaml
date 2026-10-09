@@ -1,0 +1,45 @@
+# Run through make (make up, make backup, ...): it passes the secrets and .env.
+name: kommunalka-service
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: kommunalka-service
+  volumes:
+    # The database lives in a Docker volume, not on the host; reach it through the
+    # backup service (make backup / restore), see README.
+    - data:/data
+
+services:
+  api:
+    <<: *app
+    ports:
+      - "${KOMMUNALKA_PORT:-8000}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json')
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  backup:
+    <<: *app
+    command: ["backup", "--every", "86400"]
+    environment:
+      # Taken from the environment of docker compose (bws run), when set there.
+      - KOMMUNALKA_DB_BACKUP_REPO_URL
+      - KOMMUNALKA_BACKUP_GITHUB_TOKEN
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # Never `docker compose down -v`: it deletes the database.
+  data:

@@ -14,8 +14,8 @@ make fmt                              # ruff format + ruff check --fix
 make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
 make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_PROJECT_ID)
-make backup                           # on the host: data/backups/ + dump pushed to git (via bws)
-make backups / make restore            # list dumps in git; restore the latest (args="--revision X")
+make backup                           # one-off backup container: copy in the volume + dump to GitHub
+make backups / make restore            # list dumps in GitHub; restore the latest (args="--revision X")
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
 ```
 
@@ -24,7 +24,13 @@ Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.t
 (`Settings`, pydantic-settings): `KOMMUNALKA_`-prefixed environment variables or `.env`,
 read through `get_settings()` only at the edges (app factory, migrations `env.py`, backup
 CLI). The database URL is `KOMMUNALKA_DATABASE_URL` (default `sqlite:///kommunalka.db`); in
-Docker it is `data/kommunalka.db` on the host via a bind mount.
+Docker it is `/data/kommunalka.db` in the named volume `data`, not visible on the host: backup
+and restore run as one-off containers of the `backup` service (`docker compose run`). Docker
+files live in `docker/`: `Dockerfile` (only builds; `Dockerfile.dockerignore` next to it),
+`compose.yaml` (`name: kommunalka-service` keeps the volume name; run it through `make`,
+which adds `-f docker/compose.yaml` and the root `.env`) and `entrypoint.sh` with all
+container start logic (`serve` = migrations + Granian, the default; `backup`, `backups`,
+`restore`; container paths).
 
 ## Architecture
 
@@ -95,6 +101,9 @@ Alembic, so migrations are exercised) and `client` (`TestClient` with today fixe
 defined in its `conftest.py` (a new repository method needs a fake there too).
 `tests/presentation/web/conftest.py` sets up a household with a gas meter, readings for
 August–October 2026 and bills for August and September through the JSON API.
+`tests/infrastructure/conftest.py` runs `FakeGitHub`, an in-process server with the Contents
+and commits endpoints, for backup and restore tests (`pythonpath = ["."]` lets tests import
+it as `tests.infrastructure.conftest`).
 
 ## Conventions
 
@@ -104,5 +113,7 @@ August–October 2026 and bills for August and September through the JSON API.
 - UI texts go in templates where possible; sentences built from data are composed in
   `pages.py`, error texts in `messages.py`. Code, identifiers and docs are in English.
 - `legacy/` (one-off import of an old database) and `data/` are local only: ignored by git,
-  excluded from ty and the Docker build. `data/kommunalka.db` holds real data: check pages
-  on a copy (`KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never change it in place.
+  excluded from ty and the Docker build. The volume `data` holds real data: never
+  `docker compose down -v`; check pages on a copy (`docker compose -f docker/compose.yaml cp
+  api:/data/kommunalka.db <copy>`, then `KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never
+  change it in place.

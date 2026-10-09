@@ -40,25 +40,29 @@ bws-check:
 	@command -v bws >/dev/null || { echo "bws not found: https://bitwarden.com/help/secrets-manager-cli/"; exit 1; }
 	@test -n "$(BWS_PROJECT_ID)" || { echo "BWS_PROJECT_ID is not set: put the project id into .env"; exit 1; }
 
+COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
+UP := bws run --project-id $(BWS_PROJECT_ID) -- $(COMPOSE) up -d --build --wait
+
 up: bws-check ## Build and start the stack in Docker, secrets from the Bitwarden project $BWS_PROJECT_ID
-	@bws run --project-id $(BWS_PROJECT_ID) -- docker compose up -d --build --wait
+	@$(UP)
 
-down: ## Stop the stack (the database in ./data is kept)
-	@docker compose down
+down: ## Stop the stack (the database volume is kept)
+	@$(COMPOSE) down
 
-logs: ## Follow API logs
-	@docker compose logs -f api
+logs: ## Follow logs: make logs [service=backup]
+	@$(COMPOSE) logs -f $(or $(service),api)
 
-# Backup scripts run on the host against the stack's database in ./data.
-HOST_DB := KOMMUNALKA_DATABASE_URL=sqlite:///data/kommunalka.db bws run --project-id $(BWS_PROJECT_ID) --
+# Backup scripts run once in a container of the backup service, next to the database volume.
+DB_TOOL := bws run --project-id $(BWS_PROJECT_ID) -- $(COMPOSE) run --rm --no-deps --build backup
 
-backup: bws-check ## Back up the database into data/backups/ and push a dump to GitHub now
-	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.backup
+backup: bws-check ## Back up the database in the volume and push a dump to GitHub now
+	@$(DB_TOOL) backup
 
 backups: bws-check ## List backups in GitHub
-	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.restore --list
+	@$(DB_TOOL) backups
 
 restore: bws-check ## Restore the database from GitHub and start the stack: make restore [args="--revision <commit>"]
-	@docker compose down
-	@$(HOST_DB) uv run python -m kommunalka.infrastructure.db.restore $(args)
-	@$(MAKE) --no-print-directory up
+	@$(COMPOSE) down
+	@$(DB_TOOL) restore $(args) \
+		|| { echo "restore failed, starting the stack with the database as it was"; $(UP); exit 1; }
+	@$(UP)
