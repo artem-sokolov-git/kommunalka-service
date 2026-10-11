@@ -1,8 +1,5 @@
 .DEFAULT_GOAL := help
 
-# BWS_PROJECT_ID for up and backup can live in .env.
--include .env
-
 .PHONY: $(shell sed -nE 's/^([a-z-]+):.*/\1/p' $(firstword $(MAKEFILE_LIST)))
 
 help: ## Show this help
@@ -38,12 +35,12 @@ migration: ## Create a migration from model changes: make migration name=add_not
 
 bws-check:
 	@command -v bws >/dev/null || { echo "bws not found: https://bitwarden.com/help/secrets-manager-cli/"; exit 1; }
-	@test -n "$(BWS_PROJECT_ID)" || { echo "BWS_PROJECT_ID is not set: put the project id into .env"; exit 1; }
+	@test -n "$$BWS_ACCESS_TOKEN" || { echo "BWS_ACCESS_TOKEN is not set: export the machine account token"; exit 1; }
 
 COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
-UP := bws run --project-id $(BWS_PROJECT_ID) -- $(COMPOSE) up -d --build --wait
+UP := bws run -- $(COMPOSE) up -d --build --wait
 
-up: bws-check ## Build and start the stack in Docker, secrets from the Bitwarden project $BWS_PROJECT_ID
+up: bws-check ## Build and start the stack in Docker, secrets from Bitwarden through bws
 	@$(UP)
 
 down: ## Stop the stack (the database volume is kept)
@@ -53,7 +50,7 @@ logs: ## Follow logs: make logs [service=backup]
 	@$(COMPOSE) logs -f $(or $(service),api)
 
 # Backup scripts run once in a container of the backup service, next to the database volume.
-DB_TOOL := bws run --project-id $(BWS_PROJECT_ID) -- $(COMPOSE) run --rm --no-deps --build backup
+DB_TOOL := bws run -- $(COMPOSE) run --rm --no-deps --build backup
 
 backup: bws-check ## Back up the database in the volume and push a dump to GitHub now
 	@$(DB_TOOL) backup

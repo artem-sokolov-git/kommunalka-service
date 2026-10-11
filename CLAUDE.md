@@ -13,7 +13,7 @@ make check                            # ruff check, ruff format --check, ty chec
 make fmt                              # ruff format + ruff check --fix
 make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
-make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_PROJECT_ID)
+make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_ACCESS_TOKEN)
 make backup                           # one-off backup container: copy in the volume + dump to GitHub
 make backups / make restore            # list dumps in GitHub; restore the latest (args="--revision X")
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last

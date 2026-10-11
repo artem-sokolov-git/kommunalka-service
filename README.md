@@ -14,9 +14,9 @@ make backup  # back up now: a copy in the volume and a dump pushed to GitHub
 ```
 
 `make up` takes secrets from a [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
-project through `bws run`: install `bws`, set `BWS_ACCESS_TOKEN` of a machine account with
-access to the project in the environment, and put the project id into `.env` (ignored by
-git) as `BWS_PROJECT_ID`.
+project through `bws run`: install `bws` and set `BWS_ACCESS_TOKEN` of a machine account in
+the environment. `bws run` passes every secret the account can read, so give it access to
+this project only.
 
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
