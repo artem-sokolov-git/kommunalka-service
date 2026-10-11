@@ -1,6 +1,7 @@
 #!/bin/sh
 # Container entrypoint: everything the image does at start.
-#   serve (default)           apply migrations, then run the server
+#   serve (default)           restore the latest backup if there is no database yet,
+#                             apply migrations, then run the server
 #   backup [--every SECONDS]  back up the database (and push a dump to GitHub, if configured)
 #   backups                   list backups in GitHub
 #   restore [OPTIONS]         restore the database (stop the server first)
@@ -16,6 +17,8 @@ command="${1:-serve}"
 
 case "$command" in
     serve)
+        # A fresh volume gets the data back from GitHub; a failed restore stops the start.
+        python -m kommunalka.infrastructure.db.restore --if-missing
         # Migrations first, so the server never starts on an outdated schema.
         alembic upgrade head
         exec granian --interface asgi --host 0.0.0.0 --port 8000 kommunalka.presentation.app:app

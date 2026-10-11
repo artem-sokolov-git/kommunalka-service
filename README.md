@@ -74,8 +74,12 @@ make restore args="--revision 1a2b3c4"          # an older backup
 make restore args="--file /data/backups/kommunalka-20261009-145619Z.db"  # a copy in the volume
 ```
 
-On a new machine: install Docker, uv and `bws`, clone this repository, put `BWS_PROJECT_ID`
-into `.env` and run `make restore`.
+On a new machine nothing is needed besides the stack itself: when the volume has no database
+yet, the `api` container restores the latest dump from the backup repository on start, before
+migrations, so `make up` or any other way to deploy `docker/compose.yaml` (e.g. Dockhand,
+with `KOMMUNALKA_DB_BACKUP_REPO_URL` and `KOMMUNALKA_BACKUP_GITHUB_TOKEN` in the stack's
+environment) brings the data back. Without the repository, or with no dump in it yet, it
+starts with a new database; if the restore fails, the container doesn't start.
 
 ## Develop
 

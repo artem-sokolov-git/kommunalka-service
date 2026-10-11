@@ -29,8 +29,8 @@ and restore run as one-off containers of the `backup` service (`docker compose r
 files live in `docker/`: `Dockerfile` (only builds; `Dockerfile.dockerignore` next to it),
 `compose.yaml` (`name: kommunalka-service` keeps the volume name; run it through `make`,
 which adds `-f docker/compose.yaml` and the root `.env`) and `entrypoint.sh` with all
-container start logic (`serve` = migrations + Granian, the default; `backup`, `backups`,
-`restore`; container paths).
+container start logic (`serve` = restore a missing database from GitHub + migrations +
+Granian, the default; `backup`, `backups`, `restore`; container paths).
 
 ## Architecture
 
