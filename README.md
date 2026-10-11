@@ -50,7 +50,7 @@ Migrations are applied on start. The database lives in the Docker volume `data`
 `/data/backups/` of the same volume on start and daily, keeping the 30 newest. Set
 `KOMMUNALKA_PORT` if 8000 is busy.
 
-Other settings have defaults and can be set the same way, see `src/kommunalka/config.py`:
+Other settings have defaults and can be set the same way, see `src/kommunalka/infrastructure/config/settings.py`:
 the database URL, `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides which day it is), and the
 backup directory, number of copies, interval and branch.
 

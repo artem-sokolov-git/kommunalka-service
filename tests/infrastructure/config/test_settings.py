@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from kommunalka import config
-from kommunalka.config import Settings
+from kommunalka.infrastructure.config import Settings
+from kommunalka.infrastructure.config import settings as settings_module
 from kommunalka.presentation import dependencies
 
 ORGANIZATION_ID = UUID("6c1f8a2e-0b5d-4f3a-9e7c-2d4b8a1c5f90")
@@ -65,7 +65,7 @@ def test_reads_secrets_from_bitwarden(monkeypatch: pytest.MonkeyPatch) -> None:
             "OTHER_SERVICE_TOKEN": "ignored",
         }
 
-    monkeypatch.setattr(config, "read_secrets", read_secrets)
+    monkeypatch.setattr(settings_module, "read_secrets", read_secrets)
     monkeypatch.setenv("BWS_ACCESS_TOKEN", "0.machine.token")
     monkeypatch.setenv("BWS_ORGANIZATION_ID", str(ORGANIZATION_ID))
     monkeypatch.delenv("KOMMUNALKA_DB_BACKUP_REPO_URL")
@@ -82,7 +82,7 @@ def test_reads_secrets_from_bitwarden(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_skips_bitwarden_without_both_access_variables(
     name: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(config, "read_secrets", pytest.fail)
+    monkeypatch.setattr(settings_module, "read_secrets", pytest.fail)
     monkeypatch.setenv("BWS_ACCESS_TOKEN", "0.machine.token")
     monkeypatch.setenv("BWS_ORGANIZATION_ID", str(ORGANIZATION_ID))
     monkeypatch.delenv(name)

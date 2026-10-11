@@ -18,19 +18,19 @@ command="${1:-serve}"
 case "$command" in
     serve)
         # A fresh volume gets the data back from GitHub; a failed restore stops the start.
-        python -m kommunalka.infrastructure.db.restore --if-missing
+        python -m kommunalka.presentation.cli.restore --if-missing
         # Migrations first, so the server never starts on an outdated schema.
         alembic upgrade head
         exec granian --interface asgi --host 0.0.0.0 --port 8000 kommunalka.presentation.app:app
         ;;
     backup)
-        exec python -m kommunalka.infrastructure.db.backup "$@"
+        exec python -m kommunalka.presentation.cli.backup "$@"
         ;;
     backups)
-        exec python -m kommunalka.infrastructure.db.restore --list "$@"
+        exec python -m kommunalka.presentation.cli.restore --list "$@"
         ;;
     restore)
-        exec python -m kommunalka.infrastructure.db.restore "$@"
+        exec python -m kommunalka.presentation.cli.restore "$@"
         ;;
     *)
         exec "$command" "$@"

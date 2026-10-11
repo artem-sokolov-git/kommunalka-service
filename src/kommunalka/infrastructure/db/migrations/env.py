@@ -9,7 +9,7 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, pool
 
-from kommunalka.config import get_settings
+from kommunalka.infrastructure.config import get_settings
 from kommunalka.infrastructure.db.models import Base, DecimalString
 
 config = context.config

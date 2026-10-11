@@ -1,23 +1,15 @@
 """Online backup of the SQLite database with rotation, optionally pushed to GitHub.
 
-Usage: python -m kommunalka.infrastructure.db.backup [--every SECONDS] [...]
-
-Everything comes from the settings (`kommunalka.config`): the database of `database_url`,
-copies in `backup_dir`. With `db_backup_repo_url`, a text dump of the database is also
-committed to that GitHub repository through its API; the history of the file is the history
-of backups. Options override the settings for one run.
+A text dump of the database can be committed to a GitHub repository through its API; the
+history of the file is the history of backups.
 """
 
-import argparse
 import sqlite3
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import make_url
-
-from kommunalka.config import Settings, get_settings
-from kommunalka.infrastructure.db.github import GitHubError, GitHubFile
+from kommunalka.infrastructure.backup.github import GitHubFile
+from kommunalka.infrastructure.config import Settings
 
 PREFIX = "kommunalka-"
 DUMP = "kommunalka.sql"
@@ -78,38 +70,3 @@ def backup_file(settings: Settings, repo: str) -> GitHubFile:
         branch=settings.db_backup_branch,
         api_url=settings.github_api_url,
     )
-
-
-def main() -> None:
-    settings = get_settings()
-    parser = argparse.ArgumentParser(description="Back up the kommunalka database.")
-    parser.add_argument("--database", type=Path, default=make_url(settings.database_url).database)
-    parser.add_argument("--directory", type=Path, default=settings.backup_dir)
-    parser.add_argument("--keep", type=int, default=settings.backup_keep, help="copies to keep")
-    parser.add_argument(
-        "--every", type=int, default=settings.backup_interval, help="repeat every N seconds"
-    )
-    parser.add_argument(
-        "--repo", default=settings.db_backup_repo_url, help="GitHub repository to push a dump to"
-    )
-    args = parser.parse_args()
-    if args.database is None:
-        parser.error(f"no database file in {settings.database_url}")
-    while True:
-        try:
-            print(backup(args.database, args.directory, keep=args.keep), flush=True)
-            if args.repo:
-                file = backup_file(settings, args.repo)
-                state = "pushed" if push_dump(args.database, file) else "unchanged"
-                print(f"{file.repo}: {state}", flush=True)
-        except (BackupError, GitHubError) as error:
-            if args.every is None:
-                parser.exit(1, f"error: {error}\n")
-            print(f"error: {error}", flush=True)
-        if args.every is None:
-            return
-        time.sleep(args.every)
-
-
-if __name__ == "__main__":
-    main()

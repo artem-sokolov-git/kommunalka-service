@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 from starlette.exceptions import HTTPException
 
-from kommunalka.config import get_settings
+from kommunalka.infrastructure.config import get_settings
 from kommunalka.infrastructure.db.engine import create_db_engine
 from kommunalka.presentation.api.routers import households, meters, readings, services
 from kommunalka.presentation.errors import HANDLED_ERRORS, describe_error

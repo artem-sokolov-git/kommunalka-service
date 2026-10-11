@@ -20,11 +20,11 @@ uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_l
 ```
 
 Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.toml`
-(`alembic.ini` only configures logging). Settings live in `src/kommunalka/config.py`
+(`alembic.ini` only configures logging). Settings live in `infrastructure/config/`
 (`Settings`, pydantic-settings), read through `get_settings()` only at the edges (app
 factory, migrations `env.py`, backup CLI): `KOMMUNALKA_`-prefixed environment variables or
 `.env`; with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there, also
-`KOMMUNALKA_*` secrets from Bitwarden Secrets Manager (`infrastructure/bitwarden.py`), below
+`KOMMUNALKA_*` secrets from Bitwarden Secrets Manager (`bitwarden.py`), below
 them in priority. Simple settings have defaults; the backup repository and GitHub token
 don't. Tests set those two and switch Bitwarden off (autouse fixture in `tests/conftest.py`).
 In Docker the database is `/data/kommunalka.db` in the named volume `data`, not visible on
@@ -52,7 +52,11 @@ Clean layers under `src/kommunalka/`, dependencies point inward only:
 - `infrastructure/db/` — table models are `DeclarativeBase` classes used **only** as schema
   and query targets through `Connection`; repositories map rows to domain objects by hand.
   `SqlUnitOfWork` translates `IntegrityError` into `application.exceptions.ConflictError`.
-- `presentation/` — `api/` (JSON, Pydantic schemas) and `web/` (Jinja2 pages under `/view/`),
+- `infrastructure/config/` — `Settings`, `get_settings` and the Bitwarden source.
+- `infrastructure/backup/` — SQLite copies and dumps, restore, the GitHub Contents API
+  client (`github.py`); no argument parsing or printing.
+- `presentation/` — `api/` (JSON, Pydantic schemas), `web/` (Jinja2 pages under `/view/`) and
+  `cli/` (`backup`, `restore`: argparse commands run by the container entrypoint),
   assembled in `presentation/app.py` (entrypoint `kommunalka.presentation.app:app`).
   `presentation/errors.py::describe_error` maps errors to HTTP codes for both; `app.py`
   renders HTML errors for `/` and `/view/...`, JSON elsewhere. Today's date comes from the
@@ -105,9 +109,10 @@ Alembic, so migrations are exercised) and `client` (`TestClient` with today fixe
 defined in its `conftest.py` (a new repository method needs a fake there too).
 `tests/presentation/web/conftest.py` sets up a household with a gas meter, readings for
 August–October 2026 and bills for August and September through the JSON API.
-`tests/infrastructure/conftest.py` runs `FakeGitHub`, an in-process server with the Contents
-and commits endpoints, for backup and restore tests (`pythonpath = ["."]` lets tests import
-it as `tests.infrastructure.conftest`).
+`tests/infrastructure/backup/conftest.py` runs `FakeGitHub`, an in-process server with the
+Contents and commits endpoints, for backup and restore tests; `tests/presentation/cli/`
+reuses its fixtures (`pythonpath = ["."]` lets tests import it as
+`tests.infrastructure.backup.conftest`).
 
 ## Conventions
 

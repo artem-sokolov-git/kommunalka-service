@@ -18,7 +18,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-from kommunalka.infrastructure.bitwarden import read_secrets
+from kommunalka.infrastructure.config.bitwarden import read_secrets
 
 ENV_PREFIX = "KOMMUNALKA_"
 

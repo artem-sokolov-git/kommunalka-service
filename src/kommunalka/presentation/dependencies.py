@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Depends, Request
 
 from kommunalka.application.unit_of_work import UnitOfWork
-from kommunalka.config import get_settings
+from kommunalka.infrastructure.config import get_settings
 from kommunalka.infrastructure.db.unit_of_work import SqlUnitOfWork
 
 
