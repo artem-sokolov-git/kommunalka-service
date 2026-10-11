@@ -13,7 +13,7 @@ make check                            # ruff check, ruff format --check, ty chec
 make fmt                              # ruff format + ruff check --fix
 make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
-make up / make down / make logs       # Docker stack; up and backup get secrets via bws (BWS_ACCESS_TOKEN)
+make up / make down / make logs       # Docker stack; secrets from Bitwarden or .env
 make backup                           # one-off backup container: copy in the volume + dump to GitHub
 make backups / make restore            # list dumps in GitHub; restore the latest (args="--revision X")
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
@@ -21,12 +21,16 @@ uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_l
 
 Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.toml`
 (`alembic.ini` only configures logging). Settings live in `src/kommunalka/config.py`
-(`Settings`, pydantic-settings): `KOMMUNALKA_`-prefixed environment variables or `.env`,
-read through `get_settings()` only at the edges (app factory, migrations `env.py`, backup
-CLI). The database URL is `KOMMUNALKA_DATABASE_URL` (default `sqlite:///kommunalka.db`); in
-Docker it is `/data/kommunalka.db` in the named volume `data`, not visible on the host: backup
-and restore run as one-off containers of the `backup` service (`docker compose run`). Docker
-files live in `docker/`: `Dockerfile` (only builds; `Dockerfile.dockerignore` next to it),
+(`Settings`, pydantic-settings), read through `get_settings()` only at the edges (app
+factory, migrations `env.py`, backup CLI): `KOMMUNALKA_`-prefixed environment variables or
+`.env`; with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there, also
+`KOMMUNALKA_*` secrets from Bitwarden Secrets Manager (`infrastructure/bitwarden.py`), below
+them in priority. Simple settings have defaults; the backup repository and GitHub token
+don't. Tests set those two and switch Bitwarden off (autouse fixture in `tests/conftest.py`).
+In Docker the database is `/data/kommunalka.db` in the named volume `data`, not visible on
+the host: backup and restore run as one-off containers of the `backup` service (`docker
+compose run`). Docker files live in `docker/`: `Dockerfile` (only builds;
+`Dockerfile.dockerignore` next to it),
 `compose.yaml` (`name: kommunalka-service` keeps the volume name; run it through `make`,
 which adds `-f docker/compose.yaml` and the root `.env`) and `entrypoint.sh` with all
 container start logic (`serve` = restore a missing database from GitHub + migrations +

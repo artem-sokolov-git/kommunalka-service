@@ -1,4 +1,3 @@
-# Run through make (make up, make backup, ...): it passes the secrets and .env.
 name: kommunalka-service
 
 x-app: &app
@@ -7,14 +6,10 @@ x-app: &app
     dockerfile: docker/Dockerfile
   image: kommunalka-service
   volumes:
-    # The database lives in a Docker volume, not on the host; reach it through the
-    # backup service (make backup / restore), see README.
     - data:/data
-  environment:
-    # Taken from the environment of docker compose (bws run, Dockhand), when set there.
-    # The api restores a missing database from the repository on start.
-    - KOMMUNALKA_DB_BACKUP_REPO_URL
-    - KOMMUNALKA_BACKUP_GITHUB_TOKEN
+  env_file:
+    - path: ../.env
+      required: false
 
 services:
   api:
@@ -42,5 +37,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  # Never `docker compose down -v`: it deletes the database.
   data:

@@ -33,14 +33,10 @@ migration: ## Create a migration from model changes: make migration name=add_not
 	@test -n "$(name)" || (echo "usage: make migration name=<name>" && exit 1)
 	@uv run alembic revision --autogenerate -m "$(name)"
 
-bws-check:
-	@command -v bws >/dev/null || { echo "bws not found: https://bitwarden.com/help/secrets-manager-cli/"; exit 1; }
-	@test -n "$$BWS_ACCESS_TOKEN" || { echo "BWS_ACCESS_TOKEN is not set: export the machine account token"; exit 1; }
-
 COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
-UP := bws run -- $(COMPOSE) up -d --build --wait
+UP := $(COMPOSE) up -d --build --wait
 
-up: bws-check ## Build and start the stack in Docker, secrets from Bitwarden through bws
+up: ## Build and start the stack in Docker
 	@$(UP)
 
 down: ## Stop the stack (the database volume is kept)
@@ -50,15 +46,15 @@ logs: ## Follow logs: make logs [service=backup]
 	@$(COMPOSE) logs -f $(or $(service),api)
 
 # Backup scripts run once in a container of the backup service, next to the database volume.
-DB_TOOL := bws run -- $(COMPOSE) run --rm --no-deps --build backup
+DB_TOOL := $(COMPOSE) run --rm --no-deps --build backup
 
-backup: bws-check ## Back up the database in the volume and push a dump to GitHub now
+backup: ## Back up the database in the volume and push a dump to GitHub now
 	@$(DB_TOOL) backup
 
-backups: bws-check ## List backups in GitHub
+backups: ## List backups in GitHub
 	@$(DB_TOOL) backups
 
-restore: bws-check ## Restore the database from GitHub and start the stack: make restore [args="--revision <commit>"]
+restore: ## Restore the database from GitHub and start the stack: make restore [args="--revision <commit>"]
 	@$(COMPOSE) down
 	@$(DB_TOOL) restore $(args) \
 		|| { echo "restore failed, starting the stack with the database as it was"; $(UP); exit 1; }

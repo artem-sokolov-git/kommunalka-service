@@ -13,10 +13,19 @@ make down    # stop
 make backup  # back up now: a copy in the volume and a dump pushed to GitHub
 ```
 
-`make up` takes secrets from a [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
-project through `bws run`: install `bws` and set `BWS_ACCESS_TOKEN` of a machine account in
-the environment. `bws run` passes every secret the account can read, so give it access to
-this project only.
+The secrets `KOMMUNALKA_DB_BACKUP_REPO_URL` and `KOMMUNALKA_BACKUP_GITHUB_TOKEN` (see
+[Backups](#backups-in-a-private-github-repository)) have no defaults: the app doesn't start
+without them. It takes them either from
+[Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/), through the
+official SDK, or from `.env` (ignored by git; the containers get every variable of it):
+
+- Bitwarden: put into `.env` the token of a machine account as `BWS_ACCESS_TOKEN` and the
+  organization id as `BWS_ORGANIZATION_ID` (it is in the web vault URL,
+  `.../organizations/<id>/...`), and add the secrets to a project the account can read,
+  under the same names. Give the account access to this project only.
+- Without these two variables Bitwarden is not used: put the secrets into `.env` itself.
+
+Variables in the environment or `.env` override Bitwarden.
 
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
@@ -41,9 +50,9 @@ Migrations are applied on start. The database lives in the Docker volume `data`
 `/data/backups/` of the same volume on start and daily, keeping the 30 newest. Set
 `KOMMUNALKA_PORT` if 8000 is busy.
 
-Settings are `KOMMUNALKA_`-prefixed environment variables (or `.env`), see
-`src/kommunalka/config.py`: the database URL, `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides
-which day it is), and the backup directory, number of copies, interval and GitHub repository.
+Other settings have defaults and can be set the same way, see `src/kommunalka/config.py`:
+the database URL, `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides which day it is), and the
+backup directory, number of copies, interval and branch.
 
 ### Backups in a private GitHub repository
 
@@ -55,7 +64,7 @@ backups.
 1. Create an empty private repository: `gh repo create kommunalka-backups --private`.
 2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
    with access to that repository only and the "Contents: Read and write" permission.
-3. Add both to the Bitwarden project as secrets `KOMMUNALKA_DB_BACKUP_REPO_URL`
+3. Add both to the Bitwarden project (or `.env`) as `KOMMUNALKA_DB_BACKUP_REPO_URL`
    (`https://github.com/<you>/kommunalka-backups` or `<you>/kommunalka-backups`) and
    `KOMMUNALKA_BACKUP_GITHUB_TOKEN`
    (`github_pat_...`).
@@ -77,8 +86,8 @@ make restore args="--file /data/backups/kommunalka-20261009-145619Z.db"  # a cop
 On a new machine nothing is needed besides the stack itself: when the volume has no database
 yet, the `api` container restores the latest dump from the backup repository on start, before
 migrations, so `make up` or any other way to deploy `docker/compose.yaml` (e.g. Dockhand,
-with `KOMMUNALKA_DB_BACKUP_REPO_URL` and `KOMMUNALKA_BACKUP_GITHUB_TOKEN` in the stack's
-environment) brings the data back. Without the repository, or with no dump in it yet, it
+with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` in the `.env` next to `docker/`)
+brings the data back. Without the repository, or with no dump in it yet, it
 starts with a new database; if the restore fails, the container doesn't start.
 
 ## Develop

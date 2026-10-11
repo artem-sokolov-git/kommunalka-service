@@ -71,11 +71,10 @@ def push_dump(database: Path, file: GitHubFile) -> bool:
 
 def backup_file(settings: Settings, repo: str) -> GitHubFile:
     """The dump in the backup repository `repo`, with the token and branch of the settings."""
-    secret = settings.backup_github_token
     return GitHubFile(
         repo,
         DUMP,
-        token=secret.get_secret_value() if secret else None,
+        token=settings.backup_github_token.get_secret_value(),
         branch=settings.db_backup_branch,
         api_url=settings.github_api_url,
     )
