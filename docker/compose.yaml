@@ -6,6 +6,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: kommunalka-service
+    pull_policy: build  # rebuild on every `up`, also from tools that do not pass --build
     container_name: ks-app
     volumes:
       - data:/data
