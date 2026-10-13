@@ -48,7 +48,7 @@ services:
 
 secrets:
   gh_token:
-    file: ../secrets/gh_token
+    environment: GH_TOKEN
 
 volumes:
   data:

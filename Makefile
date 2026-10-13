@@ -43,6 +43,9 @@ migration: ## Create a migration from model changes: make migration name=add_not
 	@test -n "$(name)" || (echo "usage: make migration name=<name>" && exit 1)
 	@uv run alembic revision --autogenerate -m "$(name)"
 
+# The backup token reaches the stack as the Docker secret `gh_token` from $GH_TOKEN.
+export GH_TOKEN ?= $(shell cat secrets/gh_token 2>/dev/null)
+
 COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
 UP := $(COMPOSE) up -d --build --wait
 

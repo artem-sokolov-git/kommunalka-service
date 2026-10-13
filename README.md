@@ -52,8 +52,9 @@ it as a release in a private GitHub repository, keeping the last 7 days, 4 weeks
    the `repo` scope, or fine-grained with the Administration and Contents permissions (the
    service creates the repository). If the repository exists, a fine-grained token limited
    to it with "Contents: Read and write" is enough.
-2. Save the token into `secrets/gh_token` (ignored by git); Docker passes it to the
-   service as a secret. The repository name is `GITHUB_REPO` in `docker/compose.yaml`
+2. Save the token into `secrets/gh_token` (ignored by git; `make` reads it into `GH_TOKEN`)
+   or set `GH_TOKEN` in the environment of the stack (e.g. in a deploy tool); Docker passes
+   it to the service as a secret, never as an environment variable. The repository name is `GITHUB_REPO` in `docker/compose.yaml`
    (`kommunalka-sqlite-backups`; `<you>/<name>` also works).
 3. `make up`; `make logs service=backup` shows the backups.
 

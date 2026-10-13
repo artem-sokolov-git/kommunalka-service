@@ -28,7 +28,7 @@ In Docker the database is `/data/kommunalka.db` in the named volume `data` (Dock
 `kommunalka-data`, set in `compose.yaml`; the older `kommunalka-service_data` is unused), not
 visible on the host. Backups are not part of the code: the `backup` service is the external image
 `sqlite-repo-backuper` (daily release in a private GitHub repo; the token is the Docker
-secret from the git-ignored `secrets/gh_token`); backup, list and restore run as
+secret made from `$GH_TOKEN`, which `make` takes from the git-ignored `secrets/gh_token`); backup, list and restore run as
 one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
 image. Docker files live in `docker/`: `Dockerfile` (only builds;
 `Dockerfile.dockerignore` next to it),
