@@ -10,22 +10,19 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
 ```sh
 make up      # build and start in Docker: http://localhost:8000
 make down    # stop
-make backup  # back up now: a copy in the volume and a dump pushed to GitHub
+make backup  # back up now to GitHub
 ```
 
-The secrets `KOMMUNALKA_DB_BACKUP_REPO_URL` and `KOMMUNALKA_BACKUP_GITHUB_TOKEN` (see
-[Backups](#backups-in-a-private-github-repository)) have no defaults: the app doesn't start
-without them. It takes them either from
-[Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/), through the
-official SDK, or from `.env` (ignored by git; the containers get every variable of it):
-
-- Bitwarden: put into `.env` the token of a machine account as `BWS_ACCESS_TOKEN` and the
-  organization id as `BWS_ORGANIZATION_ID` (it is in the web vault URL,
-  `.../organizations/<id>/...`), and add the secrets to a project the account can read,
-  under the same names. Give the account access to this project only.
-- Without these two variables Bitwarden is not used: put the secrets into `.env` itself.
-
-Variables in the environment or `.env` override Bitwarden.
+Settings are taken from the environment, `.env` (ignored by git) or
+[Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/) through the
+official SDK: put the token of a machine account into `secrets/bws_access_token` and the
+organization id into `secrets/bws_organization_id` (`make install` creates them empty; the
+folder is ignored by git; Docker passes the files to the `api` service as secrets, `make dev`
+reads them from there), and add
+secrets named `KOMMUNALKA_<SETTING>` to a project the account can read. Variables in the
+environment or `.env` override Bitwarden (locally only: containers don't get `.env`, secrets
+reach them only as Docker secrets). The backup token is a file too, see
+[Backups](#backups).
 
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
@@ -44,57 +41,50 @@ The pages are at http://localhost:8000, the API docs at `/docs`.
 - **Тарифы**: current prices with their history; a new price starts from a chosen month
   and can be undone until a bill uses it.
 
-Migrations are applied on start. The database lives in the Docker volume `data`
+Migrations are applied on start. The database lives in the Docker volume `kommunalka-data`
 (`/data/kommunalka.db` in the containers), not on the host, and is kept between restarts;
-`docker compose down -v` would delete it. The `backup` service copies it into
-`/data/backups/` of the same volume on start and daily, keeping the 30 newest. Set
-`KOMMUNALKA_PORT` if 8000 is busy.
+`docker compose down -v` would delete it. Set `KOMMUNALKA_PORT` if 8000 is busy.
 
-Other settings have defaults and can be set the same way, see `src/kommunalka/infrastructure/config/settings.py`:
-the database URL, `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides which day it is), and the
-backup directory, number of copies, interval and branch.
+Other settings have defaults, see `src/kommunalka/infrastructure/config/settings.py`: the
+database URL and `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides which day it is).
 
-### Backups in a private GitHub repository
+### Backups
 
-The `backup` service can also commit a text dump of the database, `kommunalka.sql`, to a
-GitHub repository on each run, straight through the GitHub API (no clone on disk); a new
-commit appears only when the data changed, so the history of the file is the history of
-backups.
+The `backup` service is the external
+[sqlite-repo-backuper](https://github.com/artem-sokolov-git/sqlite-repo-backuper): it makes a
+consistent copy of the database in the volume daily (and on start), checks it and publishes
+it as a release in a private GitHub repository, keeping the last 7 days, 4 weeks and
+6 months.
 
-1. Create an empty private repository: `gh repo create kommunalka-backups --private`.
-2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
-   with access to that repository only and the "Contents: Read and write" permission.
-3. Add both to the Bitwarden project (or `.env`) as `KOMMUNALKA_DB_BACKUP_REPO_URL`
-   (`https://github.com/<you>/kommunalka-backups` or `<you>/kommunalka-backups`) and
-   `KOMMUNALKA_BACKUP_GITHUB_TOKEN`
-   (`github_pat_...`).
-4. `make up`; `make logs service=backup` shows `<you>/kommunalka-backups: pushed`.
+1. Create a [token](https://github.com/settings/personal-access-tokens/new): classic with
+   the `repo` scope, or fine-grained with the Administration and Contents permissions (the
+   service creates the repository). If the repository exists, a fine-grained token limited
+   to it with "Contents: Read and write" is enough.
+2. Save the token into `secrets/gh_token` (ignored by git); Docker passes it to the
+   service as a secret. The repository name is `GITHUB_REPO` in `docker/compose.yaml`
+   (`kommunalka-sqlite-backups`; `<you>/<name>` also works).
+3. `make up`; `make logs service=backup` shows the backups.
 
 ### Restore
 
-`make restore` stops the stack, restores the database from the latest dump in the backup
-repository (in a one-off container of the `backup` service) and starts the stack again;
-migrations bring an older dump up to date. The new database is built and checked first, the
-replaced one is kept in the volume as `/data/kommunalka-before-restore-<time>.db`.
+`make restore` stops the stack, restores the database from the latest backup (in a one-off
+container of the `backup` service; the copy is verified before it replaces the database)
+and starts the stack again.
 
 ```sh
-make backups                                    # list backups in GitHub
-make restore args="--revision 1a2b3c4"          # an older backup
-make restore args="--file /data/backups/kommunalka-20261009-145619Z.db"  # a copy in the volume
+make backups                       # list backups in GitHub
+make restore tag=<tag>             # an older backup
 ```
 
-On a new machine nothing is needed besides the stack itself: when the volume has no database
-yet, the `api` container restores the latest dump from the backup repository on start, before
-migrations, so `make up` or any other way to deploy `docker/compose.yaml` (e.g. Dockhand,
-with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` in the `.env` next to `docker/`)
-brings the data back. Without the repository, or with no dump in it yet, it
-starts with a new database; if the restore fails, the container doesn't start.
+A new volume starts with an empty database: on a new machine run `make up` and then
+`make restore` (stop the `api` before it if it already created a database; `make restore`
+does).
 
 ## Develop
 
 ```sh
-make install                     # dependencies and pre-commit hooks
-make dev                         # API with reload on http://localhost:8000
+make install                     # secrets/ with empty files (mode 600) to fill in
+make dev                         # dependencies, pre-commit hooks, API with reload on :8000
 make check                       # ruff, ty and tests
 make migration name=add_notes    # migration from model changes
 ```

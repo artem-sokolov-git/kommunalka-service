@@ -8,33 +8,37 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core (no ORM session), Al
 ## Commands
 
 ```sh
-make install                          # uv sync + pre-commit hooks
+make install                          # create secrets/ with empty files (mode 600), keeps existing
 make check                            # ruff check, ruff format --check, ty check, pytest
 make fmt                              # ruff format + ruff check --fix
-make dev                              # migrate ./kommunalka.db, run Granian with reload on :8000
+make dev                              # uv sync + pre-commit hooks, migrate ./kommunalka.db, Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
-make up / make down / make logs       # Docker stack; secrets from Bitwarden or .env
-make backup                           # one-off backup container: copy in the volume + dump to GitHub
-make backups / make restore            # list dumps in GitHub; restore the latest (args="--revision X")
+make up / make down / make logs       # Docker stack; secrets only as files in secrets/ (Docker secrets)
+make backup                           # one-off backup now (external sqlite-repo-backuper service)
+make backups / make restore            # list backups in GitHub; restore the latest (tag=<tag>)
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
 ```
 
 Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.toml`
 (`alembic.ini` only configures logging). Settings live in `infrastructure/config/`
 (`Settings`, pydantic-settings), read through `get_settings()` only at the edges (app
-factory, migrations `env.py`, backup CLI): `KOMMUNALKA_`-prefixed environment variables or
-`.env`; with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there, also
+factory, migrations `env.py`): `KOMMUNALKA_`-prefixed environment variables or
+`.env`; with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there (or as files
+`bws_access_token` and `bws_organization_id` in `secrets/` or `/run/secrets/`), also
 `KOMMUNALKA_*` secrets from Bitwarden Secrets Manager (`bitwarden.py`), below
-them in priority. Simple settings have defaults; the backup repository and GitHub token
-don't. Tests set those two and switch Bitwarden off (autouse fixture in `tests/conftest.py`).
-In Docker the database is `/data/kommunalka.db` in the named volume `data`, not visible on
-the host: backup and restore run as one-off containers of the `backup` service (`docker
-compose run`). Docker files live in `docker/`: `Dockerfile` (only builds;
+them in priority. All settings have defaults; tests switch Bitwarden off (autouse fixture
+in `tests/conftest.py`).
+In Docker the database is `/data/kommunalka.db` in the named volume `data` (Docker name
+`kommunalka-data`, set in `compose.yaml`; the older `kommunalka-service_data` is unused), not
+visible on the host. Backups are not part of the code: the `backup` service is the external image
+`sqlite-repo-backuper` (daily release in a private GitHub repo; the token is the Docker
+secret from the git-ignored `secrets/gh_token`, not Bitwarden); backup, list and restore run as
+one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
+image. Docker files live in `docker/`: `Dockerfile` (only builds;
 `Dockerfile.dockerignore` next to it),
-`compose.yaml` (`name: kommunalka-service` keeps the volume name; run it through `make`,
-which adds `-f docker/compose.yaml` and the root `.env`) and `entrypoint.sh` with all
-container start logic (`serve` = restore a missing database from GitHub + migrations +
-Granian, the default; `backup`, `backups`, `restore`; container paths).
+`compose.yaml` (run it through `make`, which adds `-f docker/compose.yaml` and the root
+`.env` for variable substitution only) and `entrypoint.sh` with all container start logic
+(`serve` = migrations + Granian, the default; container paths).
 
 ## Architecture
 
@@ -53,10 +57,7 @@ Clean layers under `src/kommunalka/`, dependencies point inward only:
   and query targets through `Connection`; repositories map rows to domain objects by hand.
   `SqlUnitOfWork` translates `IntegrityError` into `application.exceptions.ConflictError`.
 - `infrastructure/config/` — `Settings`, `get_settings` and the Bitwarden source.
-- `infrastructure/backup/` — SQLite copies and dumps, restore, the GitHub Contents API
-  client (`github.py`); no argument parsing or printing.
-- `presentation/` — `api/` (JSON, Pydantic schemas), `web/` (Jinja2 pages under `/view/`) and
-  `cli/` (`backup`, `restore`: argparse commands run by the container entrypoint),
+- `presentation/` — `api/` (JSON, Pydantic schemas) and `web/` (Jinja2 pages under `/view/`),
   assembled in `presentation/app.py` (entrypoint `kommunalka.presentation.app:app`).
   `presentation/errors.py::describe_error` maps errors to HTTP codes for both; `app.py`
   renders HTML errors for `/` and `/view/...`, JSON elsewhere. Today's date comes from the
@@ -109,10 +110,6 @@ Alembic, so migrations are exercised) and `client` (`TestClient` with today fixe
 defined in its `conftest.py` (a new repository method needs a fake there too).
 `tests/presentation/web/conftest.py` sets up a household with a gas meter, readings for
 August–October 2026 and bills for August and September through the JSON API.
-`tests/infrastructure/backup/conftest.py` runs `FakeGitHub`, an in-process server with the
-Contents and commits endpoints, for backup and restore tests; `tests/presentation/cli/`
-reuses its fixtures (`pythonpath = ["."]` lets tests import it as
-`tests.infrastructure.backup.conftest`).
 
 ## Conventions
 
@@ -122,7 +119,7 @@ reuses its fixtures (`pythonpath = ["."]` lets tests import it as
 - UI texts go in templates where possible; sentences built from data are composed in
   `pages.py`, error texts in `messages.py`. Code, identifiers and docs are in English.
 - `legacy/` (one-off import of an old database) and `data/` are local only: ignored by git,
-  excluded from ty and the Docker build. The volume `data` holds real data: never
+  excluded from ty and the Docker build. The volume `kommunalka-data` holds real data: never
   `docker compose down -v`; check pages on a copy (`docker compose -f docker/compose.yaml cp
   api:/data/kommunalka.db <copy>`, then `KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never
   change it in place.

@@ -16,6 +16,7 @@ data
 
 # Secrets
 .env
+secrets
 
 # Playwright
 .playwright-mcp

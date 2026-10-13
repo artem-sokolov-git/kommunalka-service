@@ -5,11 +5,21 @@
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-install: ## Install dependencies and pre-commit hooks
+SECRETS := gh_token bws_access_token bws_organization_id
+
+install: ## Create secrets/ with empty files (existing ones are kept), fill them in
+	@mkdir -p secrets
+	@chmod 700 secrets
+	@for name in $(SECRETS); do \
+		test -e secrets/$$name || : > secrets/$$name; \
+		chmod 600 secrets/$$name; \
+	done
+	@echo "fill in the files in secrets/: $(SECRETS)"
+
+dev: ## Install dependencies and pre-commit hooks, migrate, run the API with reload on :8000
 	@uv sync
 	@uv run pre-commit install
-
-dev: migrate ## Run the API with reload on http://localhost:8000
+	@$(MAKE) --no-print-directory migrate
 	@uv run granian --interface asgi --reload --reload-paths src kommunalka.presentation.app:app
 
 test: ## Run tests
@@ -45,17 +55,18 @@ down: ## Stop the stack (the database volume is kept)
 logs: ## Follow logs: make logs [service=backup]
 	@$(COMPOSE) logs -f $(or $(service),api)
 
-# Backup scripts run once in a container of the backup service, next to the database volume.
-DB_TOOL := $(COMPOSE) run --rm --no-deps --build backup
+# Backups are made by the external service sqlite-repo-backuper (see docker/compose.yaml);
+# one-off commands run in a container of it, next to the database volume.
+BACKUP := $(COMPOSE) run --rm --no-deps backup
 
-backup: ## Back up the database in the volume and push a dump to GitHub now
-	@$(DB_TOOL) backup
+backup: ## Back up the database to GitHub now
+	@$(BACKUP) backup
 
 backups: ## List backups in GitHub
-	@$(DB_TOOL) backups
+	@$(BACKUP) list
 
-restore: ## Restore the database from GitHub and start the stack: make restore [args="--revision <commit>"]
+restore: ## Restore the database from GitHub and start the stack: make restore [tag=<tag>]
 	@$(COMPOSE) down
-	@$(DB_TOOL) restore $(args) \
+	@$(BACKUP) restore $(or $(tag),latest) -o /data/kommunalka.db --force \
 		|| { echo "restore failed, starting the stack with the database as it was"; $(UP); exit 1; }
 	@$(UP)

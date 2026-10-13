@@ -7,15 +7,15 @@ x-app: &app
   image: kommunalka-service
   volumes:
     - data:/data
-  env_file:
-    - path: ../.env
-      required: false
 
 services:
   api:
     <<: *app
     ports:
       - "${KOMMUNALKA_PORT:-8000}:8000"
+    secrets:
+      - bws_access_token
+      - bws_organization_id
     restart: unless-stopped
     healthcheck:
       test:
@@ -28,13 +28,35 @@ services:
       start_period: 10s
       retries: 3
 
+  # External service: https://github.com/artem-sokolov-git/sqlite-repo-backuper
   backup:
-    <<: *app
-    command: ["backup", "--every", "86400"]
+    image: ghcr.io/artem-sokolov-git/sqlite-repo-backuper:latest
+    # The uid of the `app` user of the image: the service opens the database files.
+    user: "999:999"
+    volumes:
+      - data:/data
+    environment:
+      SQLITE_DB_PATHS: /data/kommunalka.db
+      GITHUB_REPO: kommunalka-sqlite-backups  # created as private if missing
+      GH_TOKEN_FILE: /run/secrets/gh_token
+      SCHEDULE: "@daily"
+      BACKUP_ON_START: "true"
+      TZ: Europe/Kyiv
+    secrets:
+      - gh_token
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
 
+secrets:
+  gh_token:
+    file: ../secrets/gh_token
+  bws_access_token:
+    file: ../secrets/bws_access_token
+  bws_organization_id:
+    file: ../secrets/bws_organization_id
+
 volumes:
   data:
+    name: kommunalka-data

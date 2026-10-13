@@ -56,7 +56,6 @@ allowed-confusables = ["А", "В", "Е", "К", "М", "Н", "О", "Р", "С", "Т
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 
 [tool.ty.environment]

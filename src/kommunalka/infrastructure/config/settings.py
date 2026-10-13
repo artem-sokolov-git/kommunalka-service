@@ -2,6 +2,8 @@
 
 With `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there, they are also read from
 Bitwarden Secrets Manager as secrets `KOMMUNALKA_<SETTING>`, below them in priority.
+The two can be files named `bws_access_token` and `bws_organization_id` in `secrets/`
+(locally) or `/run/secrets/` (Docker secrets).
 """
 
 from functools import cache
@@ -21,22 +23,19 @@ from pydantic_settings import (
 from kommunalka.infrastructure.config.bitwarden import read_secrets
 
 ENV_PREFIX = "KOMMUNALKA_"
+SECRETS_DIRS = (Path("secrets"), Path("/run/secrets"))
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix=ENV_PREFIX, env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix=ENV_PREFIX,
+        env_file=".env",
+        extra="ignore",
+        secrets_dir=[directory for directory in SECRETS_DIRS if directory.is_dir()],
+    )
 
     database_url: str = "sqlite:///kommunalka.db"
     timezone: str = "Europe/Kyiv"
-
-    backup_dir: Path = Path("data/backups")
-    backup_keep: int = 30
-    backup_interval: int | None = None
-
-    db_backup_repo_url: str
-    db_backup_branch: str = "main"
-    backup_github_token: SecretStr
-    github_api_url: str = "https://api.github.com"
 
     bws_access_token: SecretStr | None = Field(default=None, validation_alias="BWS_ACCESS_TOKEN")
     bws_organization_id: UUID | None = Field(default=None, validation_alias="BWS_ORGANIZATION_ID")
@@ -58,6 +57,12 @@ class Settings(BaseSettings):
             BitwardenSettingsSource(settings_cls),
         )
 
+    @field_validator("bws_access_token", "bws_organization_id", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: Any) -> Any:
+        """An empty secret file (`make install` creates them so) means no Bitwarden."""
+        return (value.strip() or None) if isinstance(value, str) else value
+
     @field_validator("timezone")
     @classmethod
     def _known_timezone(cls, value: str) -> str:
@@ -69,7 +74,7 @@ class Settings(BaseSettings):
 
 
 class BitwardenSettingsSource(PydanticBaseSettingsSource):
-    """Secrets named like the environment variables (`KOMMUNALKA_BACKUP_GITHUB_TOKEN`).
+    """Secrets named like the environment variables (`KOMMUNALKA_DATABASE_URL`).
 
     Read only with both `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` set.
     """

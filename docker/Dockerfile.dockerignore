@@ -8,6 +8,7 @@ tests
 docker/Dockerfile*
 docker/compose.yaml
 .env
+secrets
 data
 legacy
 .playwright-mcp
