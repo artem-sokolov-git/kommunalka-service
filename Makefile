@@ -43,8 +43,14 @@ migration: ## Create a migration from model changes: make migration name=add_not
 	@test -n "$(name)" || (echo "usage: make migration name=<name>" && exit 1)
 	@uv run alembic revision --autogenerate -m "$(name)"
 
-# The backup token reaches the stack as the Docker secret `gh_token` from $GH_TOKEN.
-export GH_TOKEN ?= $(shell cat secrets/gh_token 2>/dev/null)
+# The backup token reaches the stack as the Docker secret `gh_token` from $GH_TOKEN: from the
+# environment, from `.env`, or else from the file secrets/gh_token (an empty one is skipped).
+ifeq ($(origin GH_TOKEN),undefined)
+GH_TOKEN_FROM_FILE := $(shell cat secrets/gh_token 2>/dev/null)
+ifneq ($(GH_TOKEN_FROM_FILE),)
+export GH_TOKEN := $(GH_TOKEN_FROM_FILE)
+endif
+endif
 
 COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
 UP := $(COMPOSE) up -d --build --wait
@@ -56,7 +62,7 @@ down: ## Stop the stack (the database volume is kept)
 	@$(COMPOSE) down
 
 logs: ## Follow logs: make logs [service=backup]
-	@$(COMPOSE) logs -f $(or $(service),app)
+	@$(COMPOSE) logs -f
 
 # Backups are made by the external service sqlite-repo-backuper (see docker/compose.yaml);
 # one-off commands run in a container of it, next to the database volume.
