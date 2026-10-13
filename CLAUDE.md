@@ -8,12 +8,11 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core (no ORM session), Al
 ## Commands
 
 ```sh
-make install                          # create secrets/ with empty files (mode 600), keeps existing
 make check                            # ruff check, ruff format --check, ty check, pytest
 make fmt                              # ruff format + ruff check --fix
 make dev                              # uv sync + pre-commit hooks, migrate ./kommunalka.db, Granian with reload on :8000
 make migration name=<slug>            # alembic revision --autogenerate
-make up / make down / make logs       # Docker stack; secrets only as files in secrets/ (Docker secrets)
+make up / make down / make logs       # Docker stack; the backup token is GH_TOKEN from the environment or .env
 make backup                           # one-off backup now (external sqlite-repo-backuper service)
 make backups / make restore            # list backups in GitHub; restore the latest (tag=<tag>)
 uv run pytest tests/domain/entities/test_reading.py::test_next_reading_follows_last
@@ -27,8 +26,8 @@ factory, migrations `env.py`): `KOMMUNALKA_`-prefixed environment variables or
 In Docker the database is `/data/kommunalka.db` in the named volume `data` (Docker name
 `kommunalka-data`, set in `compose.yaml`; the older `kommunalka-service_data` is unused), not
 visible on the host. Backups are not part of the code: the `backup` service is the external image
-`sqlite-repo-backuper` (daily release in a private GitHub repo; the token is the Docker
-secret made from `$GH_TOKEN`, which `make` takes from the git-ignored `secrets/gh_token`); backup, list and restore run as
+`sqlite-repo-backuper` (daily release in a private GitHub repo; the token is
+`GH_TOKEN` from the environment or the git-ignored `.env`); backup, list and restore run as
 one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
 image. Docker files live in `docker/`: `Dockerfile` (builds the image; its `CMD` applies
 migrations and starts Granian, the database path is set there; `Dockerfile.dockerignore` next

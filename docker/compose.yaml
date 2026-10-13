@@ -29,20 +29,14 @@ services:
     environment:
       SQLITE_DB_PATHS: /data/kommunalka.db
       GITHUB_REPO: kommunalka-sqlite-backups  # created as private if missing
-      GH_TOKEN_FILE: /run/secrets/gh_token
+      GH_TOKEN:  # from the environment or `.env`
       SCHEDULE: "@daily"
       BACKUP_ON_START: "true"
       TZ: Europe/Kyiv
-    secrets:
-      - gh_token
     depends_on:
       app:
         condition: service_healthy
     restart: unless-stopped
-
-secrets:
-  gh_token:
-    environment: GH_TOKEN
 
 volumes:
   data:

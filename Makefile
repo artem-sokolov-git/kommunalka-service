@@ -5,17 +5,6 @@
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-SECRETS := gh_token
-
-install: ## Create secrets/ with empty files (existing ones are kept), fill them in
-	@mkdir -p secrets
-	@chmod 700 secrets
-	@for name in $(SECRETS); do \
-		test -e secrets/$$name || : > secrets/$$name; \
-		chmod 600 secrets/$$name; \
-	done
-	@echo "fill in the files in secrets/: $(SECRETS)"
-
 dev: ## Install dependencies and pre-commit hooks, migrate, run the API with reload on :8000
 	@uv sync
 	@uv run pre-commit install
@@ -42,15 +31,6 @@ migrate: ## Apply migrations to the local database
 migration: ## Create a migration from model changes: make migration name=add_notes
 	@test -n "$(name)" || (echo "usage: make migration name=<name>" && exit 1)
 	@uv run alembic revision --autogenerate -m "$(name)"
-
-# The backup token reaches the stack as the Docker secret `gh_token` from $GH_TOKEN: from the
-# environment, from `.env`, or else from the file secrets/gh_token (an empty one is skipped).
-ifeq ($(origin GH_TOKEN),undefined)
-GH_TOKEN_FROM_FILE := $(shell cat secrets/gh_token 2>/dev/null)
-ifneq ($(GH_TOKEN_FROM_FILE),)
-export GH_TOKEN := $(GH_TOKEN_FROM_FILE)
-endif
-endif
 
 COMPOSE := docker compose -f docker/compose.yaml -f docker/compose.build.yaml $(if $(wildcard .env),--env-file .env)
 UP := $(COMPOSE) up -d --wait
