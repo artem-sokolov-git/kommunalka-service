@@ -13,9 +13,6 @@ services:
     <<: *app
     ports:
       - "${KOMMUNALKA_PORT:-8000}:8000"
-    secrets:
-      - bws_access_token
-      - bws_organization_id
     restart: unless-stopped
     healthcheck:
       test:
@@ -52,10 +49,6 @@ services:
 secrets:
   gh_token:
     file: ../secrets/gh_token
-  bws_access_token:
-    file: ../secrets/bws_access_token
-  bws_organization_id:
-    file: ../secrets/bws_organization_id
 
 volumes:
   data:

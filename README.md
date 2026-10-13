@@ -13,16 +13,8 @@ make down    # stop
 make backup  # back up now to GitHub
 ```
 
-Settings are taken from the environment, `.env` (ignored by git) or
-[Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/) through the
-official SDK: put the token of a machine account into `secrets/bws_access_token` and the
-organization id into `secrets/bws_organization_id` (`make install` creates them empty; the
-folder is ignored by git; Docker passes the files to the `api` service as secrets, `make dev`
-reads them from there), and add
-secrets named `KOMMUNALKA_<SETTING>` to a project the account can read. Variables in the
-environment or `.env` override Bitwarden (locally only: containers don't get `.env`, secrets
-reach them only as Docker secrets). The backup token is a file too, see
-[Backups](#backups).
+Settings are taken from the environment or `.env` (ignored by git). The backup token is
+a file in `secrets/`, see [Backups](#backups).
 
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
@@ -83,7 +75,7 @@ does).
 ## Develop
 
 ```sh
-make install                     # secrets/ with empty files (mode 600) to fill in
+make install                     # secrets/ with an empty file (mode 600) to fill in
 make dev                         # dependencies, pre-commit hooks, API with reload on :8000
 make check                       # ruff, ty and tests
 make migration name=add_notes    # migration from model changes

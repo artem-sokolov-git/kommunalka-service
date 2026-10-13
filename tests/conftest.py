@@ -16,13 +16,6 @@ from kommunalka.presentation.dependencies import get_today
 ROOT = Path(__file__).parents[1]
 
 
-@pytest.fixture(autouse=True)
-def _settings_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No Bitwarden, even with a token in the shell."""
-    monkeypatch.delenv("BWS_ACCESS_TOKEN", raising=False)
-    monkeypatch.delenv("BWS_ORGANIZATION_ID", raising=False)
-
-
 @pytest.fixture
 def alembic_config(tmp_path: Path) -> Config:
     config = Config(

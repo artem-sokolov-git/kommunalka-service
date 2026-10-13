@@ -5,7 +5,7 @@
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-SECRETS := gh_token bws_access_token bws_organization_id
+SECRETS := gh_token
 
 install: ## Create secrets/ with empty files (existing ones are kept), fill them in
 	@mkdir -p secrets

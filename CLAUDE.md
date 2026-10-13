@@ -23,16 +23,12 @@ Run `alembic` from the repo root: its config is `[tool.alembic]` in `pyproject.t
 (`alembic.ini` only configures logging). Settings live in `infrastructure/config/`
 (`Settings`, pydantic-settings), read through `get_settings()` only at the edges (app
 factory, migrations `env.py`): `KOMMUNALKA_`-prefixed environment variables or
-`.env`; with `BWS_ACCESS_TOKEN` and `BWS_ORGANIZATION_ID` there (or as files
-`bws_access_token` and `bws_organization_id` in `secrets/` or `/run/secrets/`), also
-`KOMMUNALKA_*` secrets from Bitwarden Secrets Manager (`bitwarden.py`), below
-them in priority. All settings have defaults; tests switch Bitwarden off (autouse fixture
-in `tests/conftest.py`).
+`.env`. All settings have defaults.
 In Docker the database is `/data/kommunalka.db` in the named volume `data` (Docker name
 `kommunalka-data`, set in `compose.yaml`; the older `kommunalka-service_data` is unused), not
 visible on the host. Backups are not part of the code: the `backup` service is the external image
 `sqlite-repo-backuper` (daily release in a private GitHub repo; the token is the Docker
-secret from the git-ignored `secrets/gh_token`, not Bitwarden); backup, list and restore run as
+secret from the git-ignored `secrets/gh_token`); backup, list and restore run as
 one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
 image. Docker files live in `docker/`: `Dockerfile` (only builds;
 `Dockerfile.dockerignore` next to it),
@@ -56,7 +52,7 @@ Clean layers under `src/kommunalka/`, dependencies point inward only:
 - `infrastructure/db/` — table models are `DeclarativeBase` classes used **only** as schema
   and query targets through `Connection`; repositories map rows to domain objects by hand.
   `SqlUnitOfWork` translates `IntegrityError` into `application.exceptions.ConflictError`.
-- `infrastructure/config/` — `Settings`, `get_settings` and the Bitwarden source.
+- `infrastructure/config/` — `Settings` and `get_settings`.
 - `presentation/` — `api/` (JSON, Pydantic schemas) and `web/` (Jinja2 pages under `/view/`),
   assembled in `presentation/app.py` (entrypoint `kommunalka.presentation.app:app`).
   `presentation/errors.py::describe_error` maps errors to HTTP codes for both; `app.py`
