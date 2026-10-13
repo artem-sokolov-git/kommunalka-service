@@ -32,8 +32,12 @@ secret made from `$GH_TOKEN`, which `make` takes from the git-ignored `secrets/g
 one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
 image. Docker files live in `docker/`: `Dockerfile` (builds the image; its `CMD` applies
 migrations and starts Granian, the database path is set there; `Dockerfile.dockerignore` next
-to it) and `compose.yaml` (run it through `make`, which adds `-f docker/compose.yaml` and the
-root `.env` for variable substitution only).
+to it) and `compose.yaml` (run it through `make`, which adds `-f docker/compose.yaml`,
+`-f docker/compose.build.yaml` and the root `.env` for variable substitution only).
+`compose.yaml` alone is what a deploy tool (Dockhand) uses: it copies only `docker/`, so
+the app image is not built there but pulled from the private `ghcr.io/artem-sokolov-git/
+kommunalka-service`, published by `.github/workflows/image.yml` on every push to `main`;
+`compose.build.yaml` swaps that for a local build.
 
 ## Architecture
 

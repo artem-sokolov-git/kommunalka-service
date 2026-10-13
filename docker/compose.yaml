@@ -2,11 +2,9 @@ name: kommunalka-service
 
 services:
   app:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: kommunalka-service
-    pull_policy: build  # rebuild on every `up`, also from tools that do not pass --build
+    # Published by .github/workflows/image.yml; `make` builds it locally (compose.build.yaml).
+    image: ghcr.io/artem-sokolov-git/kommunalka-service:latest
+    pull_policy: always
     container_name: ks-app
     volumes:
       - data:/data

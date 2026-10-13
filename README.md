@@ -8,13 +8,23 @@ Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
 ## Run
 
 ```sh
-make up      # build and start in Docker: http://localhost:8000
+make up      # build locally and start in Docker: http://localhost:8000
 make down    # stop
 make backup  # back up now to GitHub
 ```
 
 Settings are taken from the environment or `.env` (ignored by git). The backup token is
 a file in `secrets/`, see [Backups](#backups).
+
+### Deploy
+
+`.github/workflows/image.yml` builds the image on every push to `main` and publishes it to the
+private package `ghcr.io/artem-sokolov-git/kommunalka-service` (`latest` and `sha-<commit>`;
+amd64 and arm64). `docker/compose.yaml` alone pulls it (`pull_policy: always`), so a deploy
+tool needs only that file, with `GH_TOKEN` in the environment of the stack; the host logs in
+to the registry once: `docker login ghcr.io -u artem-sokolov-git` with a classic token that
+has `read:packages`. `make` adds `docker/compose.build.yaml` and builds from the working tree
+instead.
 
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
@@ -142,5 +152,5 @@ src/kommunalka/
     ├── api/          JSON API: routers, schemas, error mapping
     ├── web/          HTML pages: overview, readings, bills, tariffs
     └── app.py        assembles the API and the pages into one app
-docker/               Dockerfile, compose.yaml (run through make)
+docker/               Dockerfile, compose.yaml, compose.build.yaml (run through make)
 ```

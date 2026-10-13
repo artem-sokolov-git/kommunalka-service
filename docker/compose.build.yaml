@@ -1,0 +1,7 @@
+# Local override: build the image from the working tree instead of pulling the published one.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    pull_policy: build

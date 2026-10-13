@@ -52,8 +52,8 @@ export GH_TOKEN := $(GH_TOKEN_FROM_FILE)
 endif
 endif
 
-COMPOSE := docker compose -f docker/compose.yaml $(if $(wildcard .env),--env-file .env)
-UP := $(COMPOSE) up -d --build --wait
+COMPOSE := docker compose -f docker/compose.yaml -f docker/compose.build.yaml $(if $(wildcard .env),--env-file .env)
+UP := $(COMPOSE) up -d --wait
 
 up: ## Build and start the stack in Docker
 	@$(UP)
