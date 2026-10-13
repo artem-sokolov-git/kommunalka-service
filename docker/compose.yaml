@@ -1,25 +1,19 @@
 name: kommunalka-service
 
-x-app: &app
-  build:
-    context: ..
-    dockerfile: docker/Dockerfile
-  image: kommunalka-service
-  volumes:
-    - data:/data
-
 services:
-  api:
-    <<: *app
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: kommunalka-service
+    container_name: ks-app
+    volumes:
+      - data:/data
     ports:
       - "${KOMMUNALKA_PORT:-8000}:8000"
     restart: unless-stopped
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json')
+      test: [CMD, python, -m, kommunalka.presentation.api.healthcheck]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -29,6 +23,7 @@ services:
   backup:
     image: ghcr.io/artem-sokolov-git/sqlite-repo-backuper:latest
     # The uid of the `app` user of the image: the service opens the database files.
+    container_name: ks-backup
     user: "999:999"
     volumes:
       - data:/data
@@ -42,7 +37,7 @@ services:
     secrets:
       - gh_token
     depends_on:
-      api:
+      app:
         condition: service_healthy
     restart: unless-stopped
 

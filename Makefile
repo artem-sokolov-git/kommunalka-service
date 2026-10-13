@@ -56,7 +56,7 @@ down: ## Stop the stack (the database volume is kept)
 	@$(COMPOSE) down
 
 logs: ## Follow logs: make logs [service=backup]
-	@$(COMPOSE) logs -f $(or $(service),api)
+	@$(COMPOSE) logs -f $(or $(service),app)
 
 # Backups are made by the external service sqlite-repo-backuper (see docker/compose.yaml);
 # one-off commands run in a container of it, next to the database volume.

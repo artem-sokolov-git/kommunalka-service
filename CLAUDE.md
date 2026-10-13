@@ -30,11 +30,10 @@ visible on the host. Backups are not part of the code: the `backup` service is t
 `sqlite-repo-backuper` (daily release in a private GitHub repo; the token is the Docker
 secret made from `$GH_TOKEN`, which `make` takes from the git-ignored `secrets/gh_token`); backup, list and restore run as
 one-off containers of it (`docker compose run`). It runs as uid 999, the `app` user of the
-image. Docker files live in `docker/`: `Dockerfile` (only builds;
-`Dockerfile.dockerignore` next to it),
-`compose.yaml` (run it through `make`, which adds `-f docker/compose.yaml` and the root
-`.env` for variable substitution only) and `entrypoint.sh` with all container start logic
-(`serve` = migrations + Granian, the default; container paths).
+image. Docker files live in `docker/`: `Dockerfile` (builds the image; its `CMD` applies
+migrations and starts Granian, the database path is set there; `Dockerfile.dockerignore` next
+to it) and `compose.yaml` (run it through `make`, which adds `-f docker/compose.yaml` and the
+root `.env` for variable substitution only).
 
 ## Architecture
 
@@ -117,5 +116,5 @@ August–October 2026 and bills for August and September through the JSON API.
 - `legacy/` (one-off import of an old database) and `data/` are local only: ignored by git,
   excluded from ty and the Docker build. The volume `kommunalka-data` holds real data: never
   `docker compose down -v`; check pages on a copy (`docker compose -f docker/compose.yaml cp
-  api:/data/kommunalka.db <copy>`, then `KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never
+  app:/data/kommunalka.db <copy>`, then `KOMMUNALKA_DATABASE_URL=sqlite:///<copy>`), never
   change it in place.

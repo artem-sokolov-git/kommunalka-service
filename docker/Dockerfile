@@ -33,14 +33,15 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Alembic reads its config from the working directory.
 COPY pyproject.toml alembic.ini ./
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 
+# The database lives in the /data volume.
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    KOMMUNALKA_DATABASE_URL=sqlite:////data/kommunalka.db
 
 USER app
 VOLUME /data
 EXPOSE 8000
 
-ENTRYPOINT ["entrypoint"]
-CMD ["serve"]
+# Migrations first, so the server never starts on an outdated schema.
+CMD ["sh", "-c", "alembic upgrade head && exec granian --interface asgi --host 0.0.0.0 --port 8000 kommunalka.presentation.app:app"]

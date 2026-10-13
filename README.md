@@ -70,7 +70,7 @@ make restore tag=<tag>             # an older backup
 ```
 
 A new volume starts with an empty database: on a new machine run `make up` and then
-`make restore` (stop the `api` before it if it already created a database; `make restore`
+`make restore` (stop the `app` before it if it already created a database; `make restore`
 does).
 
 ## Develop
@@ -142,5 +142,5 @@ src/kommunalka/
     ├── api/          JSON API: routers, schemas, error mapping
     ├── web/          HTML pages: overview, readings, bills, tariffs
     └── app.py        assembles the API and the pages into one app
-docker/               Dockerfile, compose.yaml, entrypoint.sh (run through make)
+docker/               Dockerfile, compose.yaml (run through make)
 ```
