@@ -12,21 +12,22 @@ from kommunalka.presentation import dependencies
 def test_defaults() -> None:
     settings = Settings(_env_file=None)
 
-    assert settings.database_url == "sqlite:///kommunalka.db"
+    assert settings.database_url.startswith("postgresql+psycopg://")
     assert settings.timezone == "Europe/Kyiv"
 
 
 def test_reads_prefixed_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("KOMMUNALKA_DATABASE_URL", "sqlite:////data/kommunalka.db")
+    url = "postgresql+psycopg://user:secret@db:5432/kommunalka"
+    monkeypatch.setenv("KS_DATABASE_URL", url)
 
     settings = Settings(_env_file=None)
 
-    assert settings.database_url == "sqlite:////data/kommunalka.db"
+    assert settings.database_url == url
 
 
 def test_reads_env_file_ignoring_other_keys(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("OTHER_KEY=abc\nKOMMUNALKA_TIMEZONE=Europe/Warsaw\n")
+    env.write_text("OTHER_KEY=abc\nKS_TIMEZONE=Europe/Warsaw\n")
 
     settings = Settings(_env_file=env)
 

@@ -2,7 +2,7 @@
 
 Revision ID: 0005
 Revises: 0004
-Create Date: 2026-10-01 19:56:36.134382
+Create Date: 2026-10-25 13:28:51.824634
 
 """
 
@@ -22,9 +22,9 @@ def upgrade() -> None:
         "tariff_periods",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("service_id", sa.Uuid(), nullable=False),
-        sa.Column("price", sa.String(), nullable=False),
+        sa.Column("price", sa.Numeric(), nullable=False),
         sa.Column("valid_from", sa.Date(), nullable=False),
-        sa.Column("valid_to", sa.Date(), nullable=False),
+        sa.Column("valid_to", sa.Date(), nullable=True),
         sa.ForeignKeyConstraint(
             ["service_id"], ["services.id"], name=op.f("fk_tariff_periods_service_id_services")
         ),

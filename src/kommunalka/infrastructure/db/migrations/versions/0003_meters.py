@@ -2,7 +2,7 @@
 
 Revision ID: 0003
 Revises: 0002
-Create Date: 2026-10-01 19:56:35.787805
+Create Date: 2026-10-25 13:28:51.824634
 
 """
 
@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column("serial_number", sa.String(), nullable=False),
         sa.Column("label", sa.String(), nullable=False),
         sa.Column("installed_on", sa.Date(), nullable=False),
+        sa.Column("model", sa.String(), nullable=True),
         sa.Column("removed_on", sa.Date(), nullable=True),
         sa.ForeignKeyConstraint(
             ["household_id"], ["households.id"], name=op.f("fk_meters_household_id_households")

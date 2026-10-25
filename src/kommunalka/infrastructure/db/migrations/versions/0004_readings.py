@@ -2,7 +2,7 @@
 
 Revision ID: 0004
 Revises: 0003
-Create Date: 2026-10-01 19:56:35.949260
+Create Date: 2026-10-25 13:28:51.824634
 
 """
 
@@ -22,7 +22,7 @@ def upgrade() -> None:
         "readings",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("meter_id", sa.Uuid(), nullable=False),
-        sa.Column("value", sa.String(), nullable=False),
+        sa.Column("value", sa.Numeric(), nullable=False),
         sa.Column("taken_on", sa.Date(), nullable=False),
         sa.Column("previous_taken_on", sa.Date(), nullable=True),
         sa.Column("billing_month", sa.Date(), nullable=False),

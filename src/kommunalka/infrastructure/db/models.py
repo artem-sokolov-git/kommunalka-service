@@ -5,22 +5,8 @@ from decimal import Decimal
 from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Dialect, ForeignKey, MetaData, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, MetaData, Numeric, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import TypeDecorator
-
-
-class DecimalString(TypeDecorator[Decimal]):
-    """Exact decimal stored as text, since SQLite has no decimal type."""
-
-    impl = String
-    cache_ok = True
-
-    def process_bind_param(self, value: Decimal | None, dialect: Dialect) -> str | None:
-        return None if value is None else str(value)
-
-    def process_result_value(self, value: str | None, dialect: Dialect) -> Decimal | None:
-        return None if value is None else Decimal(value)
 
 
 class Base(DeclarativeBase):
@@ -32,7 +18,8 @@ class Base(DeclarativeBase):
             "ck": "ck_%(table_name)s_%(constraint_name)s",
         }
     )
-    type_annotation_map: ClassVar[dict[Any, Any]] = {Decimal: DecimalString()}
+    # NUMERIC without precision keeps the scale a value was written with.
+    type_annotation_map: ClassVar[dict[Any, Any]] = {Decimal: Numeric()}
 
 
 class HouseholdRow(Base):
