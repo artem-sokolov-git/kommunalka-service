@@ -3,25 +3,29 @@
 Simple service for tracking utility bills: meters, monthly readings, tariffs and bills
 of a household.
 
-Python 3.13, FastAPI on Granian, SQLite via SQLAlchemy Core, Alembic migrations.
+Python 3.13, FastAPI on Granian, PostgreSQL via SQLAlchemy Core, Alembic migrations.
 
 ## Run
 
+The app runs only in Docker.
+
 ```sh
+printf '\nKS_PG_PASS=%s\n' "$(openssl rand -hex 16)" >> .env   # once: the database password
 make up      # build locally and start in Docker: http://localhost:8000
 make down    # stop
-make backup  # back up now to GitHub
+make backup  # dump the database now into ./backups
 ```
 
-Settings are taken from the environment or `.env` (ignored by git). The backup token is
-`GH_TOKEN` there, see [Backups](#backups).
+Settings are taken from the environment or `.env` (ignored by git). `KS_PG_PASS` is required:
+letters and digits only (it is also a part of the database URL, and Compose reads `$` as a
+variable). It is applied when the database is created, so set it before the first `make up`.
 
 ### Deploy
 
 `.github/workflows/image.yml` builds the image on every push to `main` and publishes it to the
 private package `ghcr.io/artem-sokolov-git/kommunalka-service` (`latest` and `sha-<commit>`;
 amd64 and arm64). `docker/compose.yaml` alone pulls it (`pull_policy: always`), so a deploy
-tool needs only that file, with `GH_TOKEN` in the environment of the stack; the host logs in
+tool needs only that file, with `KS_PG_PASS` in the environment of the stack; the host logs in
 to the registry once: `docker login ghcr.io -u artem-sokolov-git` with a classic token that
 has `read:packages`. `make` adds `docker/compose.build.yaml` and builds from the working tree
 instead.
@@ -43,54 +47,61 @@ The pages are at http://localhost:8000, the API docs at `/docs`.
 - **Тарифы**: current prices with their history; a new price starts from a chosen month
   and can be undone until a bill uses it.
 
-Migrations are applied on start. The database lives in the Docker volume `kommunalka-data`
-(`/data/kommunalka.db` in the containers), not on the host, and is kept between restarts;
-`docker compose down -v` would delete it. Set `KOMMUNALKA_PORT` if 8000 is busy.
+Migrations are applied on start. The database lives in the Docker volume `kommunalka-pg`,
+not on the host, and is kept between restarts; `docker compose down -v` would delete it.
+Set `KOMMUNALKA_PORT` if 8000 is busy.
 
 Other settings have defaults, see `src/kommunalka/infrastructure/config/settings.py`: the
-database URL and `KOMMUNALKA_TIMEZONE` (`Europe/Kyiv`, decides which day it is).
+database URL (`KS_DATABASE_URL`, set by the compose file) and `KS_TIMEZONE` (`Europe/Kyiv`,
+decides which day it is).
 
 ### Backups
 
-The `backup` service is the external
-[sqlite-repo-backuper](https://github.com/artem-sokolov-git/sqlite-repo-backuper): it makes a
-consistent copy of the database in the volume daily (and on start), checks it and publishes
-it as a release in a private GitHub repository, keeping the last 7 days, 4 weeks and
-6 months.
-
-1. Create a [token](https://github.com/settings/personal-access-tokens/new): classic with
-   the `repo` scope, or fine-grained with the Administration and Contents permissions (the
-   service creates the repository). If the repository exists, a fine-grained token limited
-   to it with "Contents: Read and write" is enough.
-2. Set `GH_TOKEN` in `.env` or in the environment of the stack (e.g. in a deploy tool). The repository name is `GITHUB_REPO` in `docker/compose.yaml`
-   (`kommunalka-sqlite-backups`; `<you>/<name>` also works).
-3. `make up`; `make logs service=backup` shows the backups.
+The `backup` service is the image
+[postgres-backup-local](https://github.com/prodrigestivill/docker-postgres-backup-local): it
+runs `pg_dump` daily (and on start) and writes the dumps to `./backups` in the root of the
+project, ignored by git, keeping the last 7 days, 4 weeks and 6 months. `make backup` makes
+one now; `make logs` shows the schedule at work. The dumps are on the same machine as the
+database: copy `backups/` elsewhere if you need protection from losing the disk. When the
+stack is deployed from `docker/compose.yaml` alone, `./backups` is next to the copied
+`docker/` folder.
 
 ### Restore
 
-`make restore` stops the stack, restores the database from the latest backup (in a one-off
-container of the `backup` service; the copy is verified before it replaces the database)
-and starts the stack again.
+`make restore` stops the app, loads the latest dump into the database (in a single
+transaction, so a failed restore changes nothing) and starts the stack again.
 
 ```sh
-make backups                       # list backups in GitHub
-make restore tag=<tag>             # an older backup
+make backups                                   # list dumps
+make restore file=daily/kommunalka-20261025.sql.gz   # a specific one
 ```
 
-A new volume starts with an empty database: on a new machine run `make up` and then
-`make restore` (stop the `app` before it if it already created a database; `make restore`
-does).
+A new volume starts with an empty database: on a new machine copy `backups/` there, run
+`make up` and then `make restore`. A dump made before the migrations were renamed holds an
+old version number: run `alembic stamp head` after restoring it.
+
+### Moving from SQLite
+
+The data of the previous, SQLite version is copied once into an empty, migrated PostgreSQL by
+`legacy/sqlite_import.py` (a local file, not in git). The SQLite volume is mounted read-only
+and its revision must be `0008`; the script refuses a non-empty target and checks the row
+counts before it commits.
+
+```sh
+docker compose -f docker/compose.yaml -f docker/compose.build.yaml --env-file .env run --rm --no-deps \
+  -v ./legacy:/legacy:ro -v kommunalka-data:/sqlite:ro app python /legacy/sqlite_import.py /sqlite/kommunalka.db
+```
 
 ## Develop
 
 ```sh
-make dev                         # dependencies, pre-commit hooks, API with reload on :8000
-make check                       # ruff, ty and tests
+make setup                       # dependencies and pre-commit hooks
+make check                       # ruff, ty and tests (the tests start PostgreSQL in Docker)
 make migration name=add_notes    # migration from model changes
 ```
 
-Local runs use `./kommunalka.db`, separate from the Docker one. Override with
-`KOMMUNALKA_DATABASE_URL`. Run `make` for all commands.
+The app is not run on the host: use `make up`. `make migration` starts a throwaway PostgreSQL
+container for the comparison of the models with the migrations. Run `make` for all commands.
 
 ## How billing works
 
@@ -144,7 +155,7 @@ curl -X POST localhost:8000/households/$HOUSEHOLD/bills \
 src/kommunalka/
 ├── domain/           entities, value objects, bill calculation
 ├── application/      use cases, queries, repository and unit of work protocols
-├── infrastructure/   SQLite repositories, unit of work, migrations
+├── infrastructure/   PostgreSQL repositories, unit of work, migrations
 └── presentation/
     ├── api/          JSON API: routers, schemas, error mapping
     ├── web/          HTML pages: overview, readings, bills, tariffs
