@@ -9,6 +9,7 @@ docker/Dockerfile*
 docker/compose.yaml
 .env
 secrets
+backups
 data
 legacy
 .playwright-mcp

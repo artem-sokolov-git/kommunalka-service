@@ -1,15 +1,36 @@
 name: kommunalka-service
 
 services:
+  db:
+    image: postgres:18.6
+    container_name: ks-db
+    environment:
+      POSTGRES_USER: kommunalka
+      POSTGRES_DB: kommunalka
+      # Letters and digits only: the password is also a part of the URL of the app.
+      POSTGRES_PASSWORD: ${KS_PG_PASS:?set KS_PG_PASS in the environment or .env}
+    volumes:
+      - pg:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, pg_isready, -U, kommunalka, -d, kommunalka]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
   app:
     # Published by .github/workflows/image.yml; `make` builds it locally (compose.build.yaml).
     image: ghcr.io/artem-sokolov-git/kommunalka-service:latest
     pull_policy: always
     container_name: ks-app
-    volumes:
-      - data:/data
+    environment:
+      KS_DATABASE_URL: postgresql+psycopg://kommunalka:${KS_PG_PASS}@db:5432/kommunalka
     ports:
       - "${KOMMUNALKA_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: [CMD, python, -m, kommunalka.presentation.api.healthcheck]
@@ -18,26 +39,38 @@ services:
       start_period: 10s
       retries: 3
 
-  # External service: https://github.com/artem-sokolov-git/sqlite-repo-backuper
+  # External image: https://github.com/prodrigestivill/docker-postgres-backup-local
   backup:
-    image: ghcr.io/artem-sokolov-git/sqlite-repo-backuper:latest
-    # The uid of the `app` user of the image: the service opens the database files.
+    image: prodrigestivill/postgres-backup-local:18
     container_name: ks-backup
-    user: "999:999"
+    # Runs as root: a new directory belongs to root and `postgres` could not write to it.
     volumes:
-      - data:/data
+      - ../backups:/backups  # ./backups in the root of the project
     environment:
-      SQLITE_DB_PATHS: /data/kommunalka.db
-      GITHUB_REPO: kommunalka-sqlite-backups  # created as private if missing
-      GH_TOKEN:  # from the environment or `.env`
+      POSTGRES_HOST: db
+      POSTGRES_DB: kommunalka
+      POSTGRES_USER: kommunalka
+      POSTGRES_PASSWORD: ${KS_PG_PASS:?set KS_PG_PASS in the environment or .env}
+      # A dump that can be restored over an existing database (see `make restore`).
+      POSTGRES_EXTRA_OPTS: -Z1 --schema=public --clean --if-exists
       SCHEDULE: "@daily"
-      BACKUP_ON_START: "true"
+      BACKUP_ON_START: "TRUE"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
       TZ: Europe/Kyiv
     depends_on:
-      app:
+      db:
         condition: service_healthy
     restart: unless-stopped
+    # The image checks only every 5 minutes, which makes `up --wait` wait as long.
+    healthcheck:
+      test: [CMD-SHELL, 'curl -f "http://localhost:$$HEALTHCHECK_PORT/" || exit 1']
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      start_interval: 2s
 
 volumes:
-  data:
-    name: kommunalka-data
+  pg:
+    name: kommunalka-pg

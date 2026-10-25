@@ -24,9 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.13-slim
 
 RUN groupadd --system app \
-    && useradd --system --gid app --no-create-home app \
-    && mkdir /data \
-    && chown app:app /data
+    && useradd --system --gid app --no-create-home app
 
 WORKDIR /app
 
@@ -34,13 +32,10 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Alembic reads its config from the working directory.
 COPY pyproject.toml alembic.ini ./
 
-# The database lives in the /data volume.
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
-    KOMMUNALKA_DATABASE_URL=sqlite:////data/kommunalka.db
+    PYTHONUNBUFFERED=1
 
 USER app
-VOLUME /data
 EXPOSE 8000
 
 # Migrations first, so the server never starts on an outdated schema.
