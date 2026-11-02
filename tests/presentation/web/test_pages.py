@@ -1,9 +1,14 @@
 import io
+import re
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
+
+from kommunalka.presentation.web.formatting import NBSP
+
+UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 
 def test_renders_bill(client: TestClient, household: dict[str, Any]) -> None:
@@ -174,7 +179,7 @@ def test_bill_page_links_to_the_pdf(client: TestClient, household: dict[str, Any
     page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
 
     assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/9/pdf"' in page
-    assert 'download="kommunalka-2026-09.pdf"' in page
+    assert re.search(rf'download="kommunalka-2026-09-{UUID}\.pdf"', page)
     assert "data-share-bill" in page
     assert client.get("/static/bill-share.js").status_code == 200
 
@@ -184,14 +189,23 @@ def test_bill_pdf(client: TestClient, household: dict[str, Any]) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
-    assert 'filename="kommunalka-2026-09.pdf"' in response.headers["content-disposition"]
+    name = re.search(
+        rf'filename="kommunalka-2026-09-({UUID})\.pdf"', response.headers["content-disposition"]
+    )
+    assert name
     assert response.content.startswith(b"%PDF-")
-    text = " ".join(page.extract_text() for page in PdfReader(io.BytesIO(response.content)).pages)
-    assert "Счёт за сентябрь 2026" in text
-    assert "531,62" in text
-    assert "Транспортировка газа" in text
-    assert "на 39,80 больше, чем в августе" in text
-    assert "Сформировано 31\u00a0декабря 2026" in text
+    pages = PdfReader(io.BytesIO(response.content)).pages
+    # pypdf keeps some non-breaking spaces and turns others into plain ones: compare without them.
+    text = " ".join(page.extract_text() for page in pages).replace(NBSP, " ")
+    assert f"Счёт за сентябрь 2026 № {name[1]}" in text
+    assert "Домохозяйство: Дом <b>" in text
+    assert f"№ домохозяйства: {household['id']}" in text
+    assert "Период: 01.09.2026 — 30.09.2026" in text
+    assert "Газ, м³ 41 739 41 768 29 7,96 230,84" in text
+    assert "Транспортировка газа — — — — 300,78" in text
+    assert "Итого к оплате 531,62" in text
+    assert "Сформирован" not in text
+    assert "больше, чем в августе" not in text
 
 
 def test_missing_bill_pdf_is_html_404(client: TestClient, household: dict[str, Any]) -> None:

@@ -14,10 +14,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from kommunalka.application import queries
 from kommunalka.application.exceptions import ApplicationError
 from kommunalka.application.use_cases import issue_bill
-from kommunalka.domain import Bill, DomainError, FixedBillLine, Household, MeteredBillLine
-from kommunalka.presentation.dependencies import TodayDep, UowDep
+from kommunalka.domain import Bill, DomainError, FixedBillLine, MeteredBillLine
+from kommunalka.presentation.dependencies import UowDep
 from kommunalka.presentation.errors import describe_error
-from kommunalka.presentation.web.bill_pdf import render_bill
+from kommunalka.presentation.web.bill_pdf import file_name, render_bill
 from kommunalka.presentation.web.formatting import (
     InputError,
     money,
@@ -30,7 +30,7 @@ from kommunalka.presentation.web.formatting import (
     unit_label,
 )
 from kommunalka.presentation.web.messages import translate
-from kommunalka.presentation.web.pages.change import Change, bill_change
+from kommunalka.presentation.web.pages.change import bill_change
 from kommunalka.presentation.web.templating import templates
 
 router = APIRouter(include_in_schema=False)
@@ -60,18 +60,6 @@ class LineView:
     price: str
     amount: str
     change: str
-
-
-@dataclass(frozen=True, slots=True)
-class BillView:
-    """A bill as the page and the PDF show it."""
-
-    household: Household
-    year: int
-    month: int
-    total: str
-    change: Change | None
-    lines: list[LineView]
 
 
 @router.get("/view/households/{household_id}/bills", response_class=HTMLResponse)
@@ -111,7 +99,7 @@ def bill_page(
 ) -> HTMLResponse:
     details = queries.bill_details(uow, household_id, year, month)
     bill, previous = details.bill, details.previous_bill
-    view = _bill_view(details)
+    previous_amounts = {line.service_id: line.amount for line in previous.lines} if previous else {}
     return templates.TemplateResponse(
         request,
         "bill.html",
@@ -123,15 +111,16 @@ def bill_page(
             "month_title": month_name(month),
             "year": year,
             "month": month,
-            "lines": view.lines,
-            "total": view.total,
-            "change": view.change,
+            "lines": [_line(line, previous_amounts) for line in details.lines],
+            "total": money(bill.total),
+            "change": bill_change(bill, previous),
             "previous": previous.period_start if previous else None,
             "previous_title": month_name(previous.period_start.month) if previous else "",
             "next": details.next_period,
             "next_title": month_name(details.next_period.month) if details.next_period else "",
             "year_bills": [_summary(b) for b in reversed(details.year_bills)],
             "year_total": money(sum((b.total for b in details.year_bills), Decimal(0))),
+            "pdf_file": file_name(bill),
             "issued": issued,
         },
     )
@@ -139,17 +128,13 @@ def bill_page(
 
 @router.get("/view/households/{household_id}/bills/{year}/{month}/pdf")
 def bill_pdf(
-    household_id: UUID,
-    year: int,
-    month: Annotated[int, Path(ge=1, le=12)],
-    uow: UowDep,
-    today: TodayDep,
+    household_id: UUID, year: int, month: Annotated[int, Path(ge=1, le=12)], uow: UowDep
 ) -> Response:
-    view = _bill_view(queries.bill_details(uow, household_id, year, month))
+    details = queries.bill_details(uow, household_id, year, month)
     return Response(
-        render_bill(view, today),
+        render_bill(details),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="kommunalka-{year}-{month:02d}.pdf"'},
+        headers={"Content-Disposition": f'inline; filename="{file_name(details.bill)}"'},
     )
 
 
@@ -179,19 +164,6 @@ def issue_bill_form(
         return RedirectResponse(f"{url}?{urlencode({'error': message})}", status_code=303)
     url = request.url_for("bill_page", household_id=household_id, year=year, month=month)
     return RedirectResponse(f"{url}?issued=1", status_code=303)
-
-
-def _bill_view(details: queries.BillDetails) -> BillView:
-    bill, previous = details.bill, details.previous_bill
-    previous_amounts = {line.service_id: line.amount for line in previous.lines} if previous else {}
-    return BillView(
-        household=details.household,
-        year=bill.period_start.year,
-        month=bill.period_start.month,
-        total=money(bill.total),
-        change=bill_change(bill, previous),
-        lines=[_line(line, previous_amounts) for line in details.lines],
-    )
 
 
 def _line(details: queries.BillLineDetails, previous_amounts: Mapping[UUID, Decimal]) -> LineView:
