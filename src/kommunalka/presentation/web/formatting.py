@@ -1,9 +1,11 @@
 """How numbers, months and units are written for people (Russian)."""
 
+from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from uuid import UUID
 
-from kommunalka.domain import Unit
+from kommunalka.domain import Service, Unit
 
 MONTHS = (
     "январь", "февраль", "март", "апрель", "май", "июнь",
@@ -18,6 +20,7 @@ MONTHS_PREPOSITIONAL = (
     "июле", "августе", "сентябре", "октябре", "ноябре", "декабре",
 )  # fmt: skip
 UNITS = {Unit.CUBIC_METER: "м³", Unit.KWH: "кВт·ч"}
+KINDS = {Unit.CUBIC_METER: "gas", Unit.KWH: "power"}
 NBSP = "\u00a0"
 MINUS = "\u2212"
 
@@ -32,6 +35,11 @@ def month_name(month: int) -> str:
 
 def month_genitive(month: int) -> str:
     return MONTHS_GENITIVE[month - 1]
+
+
+def month_title(start: date | None) -> str:
+    """`октябрь 2026`, empty without a date."""
+    return f"{month_name(start.month)} {start.year}" if start else ""
 
 
 def day_month(day: date) -> str:
@@ -64,6 +72,11 @@ def unit_label(unit: Unit | None) -> str:
     return UNITS[unit] if unit else ""
 
 
+def service_kind(service: Service) -> str:
+    """What a service is for the icons: `gas`, `power` or `fixed` (no meter)."""
+    return KINDS[service.unit] if service.unit else "fixed"
+
+
 def number(value: Decimal) -> str:
     return f"{value:,f}".replace(",", NBSP).replace(".", ",")
 
@@ -84,3 +97,10 @@ def parse_number(text: str) -> Decimal:
         return Decimal(cleaned)
     except InvalidOperation:
         raise InputError(f"не число «{text}»") from None
+
+
+def parse_amounts(entered: Mapping[UUID, str]) -> dict[UUID, Decimal]:
+    """Amounts typed per service; empty fields are skipped."""
+    return {
+        service_id: parse_number(amount) for service_id, amount in entered.items() if amount.strip()
+    }

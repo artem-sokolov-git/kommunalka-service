@@ -10,12 +10,16 @@ Money and readings are sent as JSON strings.
 
 ## Web pages
 
-- `web/pages.py` turns query results into plain dicts/dataclasses for the templates;
+- `web/pages/` turns query results into plain dicts/dataclasses for the templates, one module
+  per section (`households`, `bills`, `readings`, `tariffs`; `change` is the comparison of a
+  bill with the previous one, shared by two of them), each with its own `router`, joined in
+  `pages/__init__.py`. Links are built with
+  `url_for` by handler function name, so those names are unique across the package.
   `formatting.py` writes Russian numbers, money, dates and plurals; `messages.py` translates the
   English domain/application error messages by regex — a new error message shown on a page needs
   an entry there.
 - UI texts go in templates where possible; sentences built from data are composed in
-  `pages.py`, error texts in `messages.py`.
+  `pages/`, error texts in `messages.py`.
 - `base.html` builds the menu from the `household` and `section` context values; `/` redirects
   to the overview when there is a single household.
 - Static files are linked with a content hash (`asset_version`, cached per process).

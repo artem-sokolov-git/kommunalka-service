@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from kommunalka.application._common import require
+from kommunalka.application.lookup import require
 from kommunalka.application.unit_of_work import UnitOfWork
 from kommunalka.application.use_cases.bills import add_bill
 from kommunalka.domain import (
