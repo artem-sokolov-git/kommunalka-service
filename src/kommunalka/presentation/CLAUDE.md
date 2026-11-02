@@ -23,6 +23,9 @@ Money and readings are sent as JSON strings.
 - `base.html` builds the menu from the `household` and `section` context values; `/` redirects
   to the overview when there is a single household.
 - Static files are linked with a content hash (`asset_version`, cached per process).
-  `static/readings.js` (live consumption and bill preview) and `static/bill-card.js` (draws the
-  bill as a PNG and shares or downloads it) only enhance pages that work without them; sharing
-  files needs HTTPS or localhost.
+  `static/readings.js` (live consumption and bill preview) and `static/bill-share.js` (shares
+  the bill PDF through the system share sheet) only enhance pages that work without them;
+  sharing files needs HTTPS or localhost.
+- The bill PDF (`.../bills/{year}/{month}/pdf`) is drawn on the server by `bill_pdf.py` (fpdf2)
+  from the same `BillView` as the page; its Russian texts live there. The font is Manrope in
+  `web/fonts/` (OFL), registered once per weight: fpdf2 has no weights beyond regular and bold.

@@ -1,7 +1,9 @@
+import io
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
 
 
 def test_renders_bill(client: TestClient, household: dict[str, Any]) -> None:
@@ -168,14 +170,35 @@ def test_overview_says_month_is_done(client: TestClient, household: dict[str, An
     assert "через 1\u00a0день" in page
 
 
-def test_bill_page_carries_a_shareable_card(client: TestClient, household: dict[str, Any]) -> None:
+def test_bill_page_links_to_the_pdf(client: TestClient, household: dict[str, Any]) -> None:
     page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
 
-    assert 'id="bill-card"' in page
-    assert '"file": "kommunalka-2026-09.png"' in page
-    assert '"total": "531,62"' in page
+    assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/9/pdf"' in page
+    assert 'download="kommunalka-2026-09.pdf"' in page
     assert "data-share-bill" in page
-    assert client.get("/static/bill-card.js").status_code == 200
+    assert client.get("/static/bill-share.js").status_code == 200
+
+
+def test_bill_pdf(client: TestClient, household: dict[str, Any]) -> None:
+    response = client.get(f"/view/households/{household['id']}/bills/2026/9/pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert 'filename="kommunalka-2026-09.pdf"' in response.headers["content-disposition"]
+    assert response.content.startswith(b"%PDF-")
+    text = " ".join(page.extract_text() for page in PdfReader(io.BytesIO(response.content)).pages)
+    assert "Счёт за сентябрь 2026" in text
+    assert "531,62" in text
+    assert "Транспортировка газа" in text
+    assert "на 39,80 больше, чем в августе" in text
+    assert "Сформировано 31\u00a0декабря 2026" in text
+
+
+def test_missing_bill_pdf_is_html_404(client: TestClient, household: dict[str, Any]) -> None:
+    response = client.get(f"/view/households/{household['id']}/bills/2026/10/pdf")
+
+    assert response.status_code == 404
+    assert "Счёт за октябрь 2026 не найден" in response.text
 
 
 def test_households_page_lists_even_one(client: TestClient, household: dict[str, Any]) -> None:
