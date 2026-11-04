@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable
 from datetime import date
 
-from kommunalka.presentation.web.formatting import month_name
+from kommunalka.presentation.shared.formatting import month_name
 
 MONTH = r"(\d{4})-(\d{2})"
 DAY = r"(\d{4}-\d{2}-\d{2})"

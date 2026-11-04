@@ -16,8 +16,10 @@ from starlette.exceptions import HTTPException
 
 from kommunalka.infrastructure.config import get_settings
 from kommunalka.infrastructure.db.engine import create_db_engine
+from kommunalka.infrastructure.db.unit_of_work import SqlUnitOfWork
 from kommunalka.presentation.api.routers import households, meters, readings, services
 from kommunalka.presentation.errors import HANDLED_ERRORS, describe_error
+from kommunalka.presentation.telegram import create_bot
 from kommunalka.presentation.web import pages
 from kommunalka.presentation.web.errors import error_page, is_page_request
 from kommunalka.presentation.web.templating import STATIC_DIR
@@ -28,8 +30,14 @@ def create_app(engine: Engine | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.engine = engine or create_db_engine(get_settings().database_url)
+        settings = get_settings()
+        app.state.engine = engine or create_db_engine(settings.database_url)
+        bot = create_bot(settings, lambda: SqlUnitOfWork(app.state.engine))
+        if bot:
+            bot.start()
         yield
+        if bot:
+            await bot.stop()
         app.state.engine.dispose()
 
     app = FastAPI(title="Kommunalka", lifespan=lifespan)

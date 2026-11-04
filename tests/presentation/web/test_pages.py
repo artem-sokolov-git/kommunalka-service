@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
 
-from kommunalka.presentation.web.formatting import NBSP
+from kommunalka.presentation.shared.formatting import NBSP
 
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 

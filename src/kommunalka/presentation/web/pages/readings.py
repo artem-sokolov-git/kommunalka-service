@@ -20,7 +20,7 @@ from kommunalka.application.use_cases import (
 from kommunalka.domain import DateRange, DomainError
 from kommunalka.presentation.dependencies import TodayDep, UowDep
 from kommunalka.presentation.errors import describe_error
-from kommunalka.presentation.web.formatting import (
+from kommunalka.presentation.shared.formatting import (
     InputError,
     day_month,
     long_date,
@@ -33,7 +33,7 @@ from kommunalka.presentation.web.formatting import (
     service_kind,
     unit_label,
 )
-from kommunalka.presentation.web.messages import translate
+from kommunalka.presentation.shared.messages import translate
 from kommunalka.presentation.web.templating import templates
 
 router = APIRouter(include_in_schema=False)

@@ -26,6 +26,9 @@ services:
     container_name: ks-app
     environment:
       KS_DATABASE_URL: postgresql+psycopg://kommunalka:${KS_PG_PASS}@db:5432/kommunalka
+      # Optional: the Telegram bot (`/bill`) starts only with both.
+      KS_BOT_TOKEN: ${KS_BOT_TOKEN:-}
+      KS_ALLOWED_USERS_TG_IDS: ${KS_ALLOWED_USERS_TG_IDS:-}
     ports:
       - "${KOMMUNALKA_PORT:-8000}:8000"
     depends_on:

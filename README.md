@@ -30,6 +30,10 @@ to the registry once: `docker login ghcr.io -u artem-sokolov-git` with a classic
 has `read:packages`. `make` adds `docker/compose.build.yaml` and builds from the working tree
 instead.
 
+Optional Telegram bot: set `KS_BOT_TOKEN` (from @BotFather) and `KS_ALLOWED_USERS_TG_IDS`
+(comma separated Telegram user ids of the people allowed to use it). `/bill 2026-09` then sends that month's
+bill PDF, `/bill` the latest one.
+
 The pages are at http://localhost:8000, the API docs at `/docs`.
 
 - **Обзор** (opens first when there is one household; all of them are at

@@ -17,8 +17,8 @@ from kommunalka.application.use_cases import issue_bill
 from kommunalka.domain import Bill, DomainError, FixedBillLine, MeteredBillLine
 from kommunalka.presentation.dependencies import UowDep
 from kommunalka.presentation.errors import describe_error
-from kommunalka.presentation.web.bill_pdf import file_name, render_bill
-from kommunalka.presentation.web.formatting import (
+from kommunalka.presentation.shared.bill_pdf import file_name, render_bill
+from kommunalka.presentation.shared.formatting import (
     InputError,
     money,
     month_name,
@@ -29,7 +29,7 @@ from kommunalka.presentation.web.formatting import (
     signed_money,
     unit_label,
 )
-from kommunalka.presentation.web.messages import translate
+from kommunalka.presentation.shared.messages import translate
 from kommunalka.presentation.web.pages.change import bill_change
 from kommunalka.presentation.web.templating import templates
 

@@ -7,5 +7,5 @@ to 2026-12-31).
 
 - `application/` runs use cases against an in-memory `FakeUnitOfWork` defined in its
   `conftest.py` (a new repository method needs a fake there too).
-- `presentation/web/conftest.py` sets up a household with a gas meter, readings for
+- `presentation/conftest.py` sets up a household with a gas meter, readings for
   August–October 2026 and bills for August and September through the JSON API.

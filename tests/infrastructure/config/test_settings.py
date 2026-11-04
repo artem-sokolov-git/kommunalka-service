@@ -44,3 +44,10 @@ def test_today_is_taken_in_the_configured_timezone(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(dependencies, "get_settings", lambda: settings)
 
     assert dependencies.get_today() == datetime.now(ZoneInfo("Pacific/Kiritimati")).date()
+
+
+def test_allowed_telegram_users_are_a_comma_separated_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).allowed_users_tg_ids == []
+    monkeypatch.setenv("KS_ALLOWED_USERS_TG_IDS", "42, 1001")
+
+    assert Settings(_env_file=None).allowed_users_tg_ids == [42, 1001]

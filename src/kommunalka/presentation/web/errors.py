@@ -1,7 +1,7 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from kommunalka.presentation.web.messages import translate
+from kommunalka.presentation.shared.messages import translate
 from kommunalka.presentation.web.templating import templates
 
 

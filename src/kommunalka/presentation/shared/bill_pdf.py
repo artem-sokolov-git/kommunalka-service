@@ -9,7 +9,7 @@ from fpdf.fonts import FontFace
 
 from kommunalka.application.queries import BillDetails, BillLineDetails, MeterReadings
 from kommunalka.domain import Bill, FixedBillLine, MeteredBillLine, Reading
-from kommunalka.presentation.web.formatting import money, month_name, number, unit_label
+from kommunalka.presentation.shared.formatting import money, month_name, number, unit_label
 
 FONT = Path(__file__).parent / "fonts" / "Manrope[wght].ttf"
 FAMILY = "Manrope"

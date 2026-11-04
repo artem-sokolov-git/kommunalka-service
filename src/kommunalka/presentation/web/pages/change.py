@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from kommunalka.domain import Bill
-from kommunalka.presentation.web.formatting import in_month, money
+from kommunalka.presentation.shared.formatting import in_month, money
 
 
 @dataclass(frozen=True, slots=True)

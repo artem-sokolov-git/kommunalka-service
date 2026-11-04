@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from kommunalka.application import queries
 from kommunalka.domain import Bill, DateRange, Household, MeteredBillLine, Service
 from kommunalka.presentation.dependencies import TodayDep, UowDep
-from kommunalka.presentation.web.formatting import (
+from kommunalka.presentation.shared.formatting import (
     day_month,
     long_date,
     money,

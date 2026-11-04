@@ -1,6 +1,6 @@
 import pytest
 
-from kommunalka.presentation.web.messages import translate
+from kommunalka.presentation.shared.messages import translate
 
 
 @pytest.mark.parametrize(
