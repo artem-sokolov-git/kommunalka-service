@@ -30,6 +30,6 @@ Money and readings are sent as JSON strings.
 - The bill PDF (`.../bills/{year}/{month}/pdf`) is a payment slip on landscape A5, drawn on the
   server by `bill_pdf.py` (fpdf2) straight from `queries.BillDetails`: the bill and household
   ids, address and period, then a table of the lines with meter readings and the total as its
-  last row; its Russian texts live there. `file_name` (month and bill id) names the file for
+  last row; its Russian texts live there. `file_name` (`bill-2026-09.pdf`) names the file for
   both the response and the page's download link. The font is Manrope in `web/fonts/` (OFL),
   one instance of the variable font per style (regular and bold).

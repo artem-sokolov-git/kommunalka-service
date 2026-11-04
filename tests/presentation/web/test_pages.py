@@ -179,7 +179,7 @@ def test_bill_page_links_to_the_pdf(client: TestClient, household: dict[str, Any
     page = client.get(f"/view/households/{household['id']}/bills/2026/9").text
 
     assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/9/pdf"' in page
-    assert re.search(rf'download="kommunalka-2026-09-{UUID}\.pdf"', page)
+    assert 'download="bill-2026-09.pdf"' in page
     assert "data-send-bill" in page
     assert "Отправить" in page
     assert "https://t.me/share/url?" in page
@@ -192,15 +192,12 @@ def test_bill_pdf(client: TestClient, household: dict[str, Any]) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
-    name = re.search(
-        rf'filename="kommunalka-2026-09-({UUID})\.pdf"', response.headers["content-disposition"]
-    )
-    assert name
+    assert response.headers["content-disposition"] == 'inline; filename="bill-2026-09.pdf"'
     assert response.content.startswith(b"%PDF-")
     pages = PdfReader(io.BytesIO(response.content)).pages
     # pypdf keeps some non-breaking spaces and turns others into plain ones: compare without them.
     text = " ".join(page.extract_text() for page in pages).replace(NBSP, " ")
-    assert f"Счёт за сентябрь 2026 № {name[1]}" in text
+    assert re.search(rf"Счёт за сентябрь 2026 № {UUID}", text)
     assert "Домохозяйство: Дом <b>" in text
     assert f"№ домохозяйства: {household['id']}" in text
     assert "Период: 01.09.2026 — 30.09.2026" in text

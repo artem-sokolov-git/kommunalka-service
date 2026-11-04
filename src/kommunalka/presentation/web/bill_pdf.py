@@ -35,8 +35,8 @@ TOTAL = FontFace(emphasis="BOLD", size_pt=10, color=INK)
 
 
 def file_name(bill: Bill) -> str:
-    """`kommunalka-2026-09-<bill id>.pdf`: the month for people, the id to tell bills apart."""
-    return f"kommunalka-{bill.period_start:%Y-%m}-{bill.id}.pdf"
+    """`bill-2026-09.pdf`."""
+    return f"bill-{bill.period_start:%Y-%m}.pdf"
 
 
 def render_bill(details: BillDetails) -> bytes:
