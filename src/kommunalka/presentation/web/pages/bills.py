@@ -121,11 +121,6 @@ def bill_page(
             "year_bills": [_summary(b) for b in reversed(details.year_bills)],
             "year_total": money(sum((b.total for b in details.year_bills), Decimal(0))),
             "pdf_file": file_name(bill),
-            "share_subject": f"Счёт за {month_name(month)} {year}",
-            "share_text": (
-                f"Счёт за {month_name(month)} {year}\n{details.household.address}\n"
-                f"Итого: {money(bill.total)} грн"
-            ),
             "issued": issued,
         },
     )

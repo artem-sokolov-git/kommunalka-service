@@ -23,9 +23,8 @@ Money and readings are sent as JSON strings.
 - `base.html` builds the menu from the `household` and `section` context values; `/` redirects
   to the overview when there is a single household.
 - Static files are linked with a content hash (`asset_version`, cached per process).
-  `static/readings.js` (live consumption and bill preview) and `static/bill-share.js` (the
-  bill's «Отправить» button opens the system share sheet with the PDF; without file sharing the
-  button is a menu: Telegram and mail links with the total as text, and the PDF download) only enhance pages that work without them;
+  `static/readings.js` (live consumption and bill preview) and `static/bill-share.js` (shares
+  the bill PDF through the system share sheet) only enhance pages that work without them;
   sharing files needs HTTPS or localhost.
 - The bill PDF (`.../bills/{year}/{month}/pdf`) is a payment slip on landscape A5, drawn on the
   server by `bill_pdf.py` (fpdf2) straight from `queries.BillDetails`: the bill and household

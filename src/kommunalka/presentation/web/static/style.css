@@ -368,26 +368,6 @@ button:hover, .button:hover { background: var(--accent-hover); color: var(--on-a
 .button.secondary:hover, button.secondary:hover { background: var(--sunken); color: var(--accent-hover); }
 button.link, .button.link { padding: 0 12px; background: none; color: var(--accent); font-weight: 600; }
 button.link:hover, .button.link:hover { background: none; color: var(--accent-hover); text-decoration: underline; }
-details.send { position: relative; }
-details.send > summary { list-style: none; }
-details.send > summary::-webkit-details-marker { display: none; }
-details.send[aria-busy] { opacity: 0.6; pointer-events: none; }
-.send-menu {
-  position: absolute;
-  right: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  margin-top: 6px;
-  padding: 6px;
-  border: 1px solid var(--field);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
-}
-.send-menu a { padding: 10px 12px; border-radius: 8px; color: var(--text); font-weight: 600; }
-.send-menu a:hover { background: var(--sunken); text-decoration: none; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 
 .notice {
