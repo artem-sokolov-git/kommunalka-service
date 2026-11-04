@@ -180,7 +180,10 @@ def test_bill_page_links_to_the_pdf(client: TestClient, household: dict[str, Any
 
     assert f'href="http://testserver/view/households/{household["id"]}/bills/2026/9/pdf"' in page
     assert re.search(rf'download="kommunalka-2026-09-{UUID}\.pdf"', page)
-    assert "data-share-bill" in page
+    assert "data-send-bill" in page
+    assert "Отправить" in page
+    assert "https://t.me/share/url?" in page
+    assert "mailto:?subject=" in page
     assert client.get("/static/bill-share.js").status_code == 200
 
 
